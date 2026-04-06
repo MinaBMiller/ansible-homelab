@@ -1,0 +1,14 @@
+# /etc/logwatch/conf/logwatch.conf
+# Managed by Ansible — manual changes will be overwritten
+#
+# Logwatch reads this config to know how to generate its daily report.
+# The report runs via /etc/cron.daily/0logwatch automatically.
+
+Detail = {{ logwatch_detail }}
+Range = {{ logwatch_range }}
+Output = {{ logwatch_output }}
+
+# Which log services to include in the report.
+# 'All' means every service logwatch knows about.
+# You can restrict to specific ones like "sshd http" if you want less noise.
+Service = All

@@ -1,0 +1,71 @@
+# /etc/nginx/sites-available/{{ item.name }}
+# Managed by Ansible — manual changes will be overwritten
+#
+# A server block defines how nginx handles requests for a specific
+# hostname and port combination. nginx matches incoming requests to
+# server blocks by comparing the Host header to server_name.
+
+server {
+    listen {{ item.port | default(80) }};
+    server_name {{ item.server_name }};
+
+    {% if item.root is defined %}
+    # The directory where this site's files are served from
+    root {{ item.root }};
+    index {{ item.index | default('index.html') }};
+    {% endif %}
+
+    {% if item.locations is defined %}
+    # ── Reverse Proxy Locations ───────────────────────────────────────────────
+    #
+    # A reverse proxy forwards requests to a backend app running on localhost.
+    # The client talks to nginx; nginx talks to the app. This pattern lets you:
+    #   - Handle TLS termination in nginx (the app doesn't need to deal with SSL)
+    #   - Run multiple apps on different paths on the same server/port
+    #   - Add caching, rate limiting, and auth in front of any app
+
+    {% for location in item.locations %}
+    location {{ location.path }} {
+        proxy_pass {{ location.proxy_pass }};
+
+        # Forward the real client IP to the backend app.
+        # Without these, the app would only see nginx's localhost address.
+        proxy_set_header Host $host;
+        proxy_set_header X-Real-IP $remote_addr;
+        proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+        proxy_set_header X-Forwarded-Proto $scheme;
+    }
+    {% endfor %}
+
+    {% else %}
+    # ── Static File Serving ───────────────────────────────────────────────────
+    location / {
+        # try_files: look for the requested file, then a directory index,
+        # then return a 404. The standard pattern for static sites.
+        try_files $uri $uri/ =404;
+    }
+    {% endif %}
+
+    {% if item.ssl | default(false) %}
+    # ── TLS/SSL ───────────────────────────────────────────────────────────────
+    #
+    # HTTPS encrypts traffic between the browser and your server.
+    # In production you'd use Let's Encrypt (certbot) to get a free certificate.
+    # For a homelab you can generate a self-signed cert:
+    #   openssl req -x509 -nodes -days 365 -newkey rsa:2048 \
+    #     -keyout /etc/ssl/private/homelab.key \
+    #     -out /etc/ssl/certs/homelab.crt
+
+    ssl_certificate {{ item.ssl_cert }};
+    ssl_certificate_key {{ item.ssl_key }};
+
+    # Only allow modern TLS versions — TLS 1.0 and 1.1 are deprecated and insecure
+    ssl_protocols TLSv1.2 TLSv1.3;
+
+    # Prefer the server's cipher list over the client's
+    ssl_prefer_server_ciphers on;
+
+    # Strong cipher suite — excludes known-weak algorithms
+    ssl_ciphers ECDHE-ECDSA-AES128-GCM-SHA256:ECDHE-RSA-AES128-GCM-SHA256:ECDHE-ECDSA-AES256-GCM-SHA384:ECDHE-RSA-AES256-GCM-SHA384;
+    {% endif %}
+}

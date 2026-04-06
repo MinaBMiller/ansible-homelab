@@ -1,0 +1,115 @@
+---
+# tasks/main.yml — Nginx Role
+
+# ── Install ───────────────────────────────────────────────────────────────────
+
+- name: Install nginx
+  ansible.builtin.apt:
+    name: nginx
+    state: present
+    update_cache: true
+
+# ── Configure ─────────────────────────────────────────────────────────────────
+
+- name: Deploy main nginx.conf
+  ansible.builtin.template:
+    src: nginx.conf.j2
+    dest: /etc/nginx/nginx.conf
+    mode: '0644'
+    # validate checks the config is syntactically valid before writing it.
+    # A bad nginx.conf would crash nginx on restart — this prevents that.
+    validate: nginx -t -c %s
+  notify: Reload nginx
+
+# Remove the default site that ships with nginx.
+# It occupies port 80 and conflicts with our vhost configs.
+- name: Remove default nginx site
+  ansible.builtin.file:
+    path: "{{ item }}"
+    state: absent
+  loop:
+    - /etc/nginx/sites-enabled/default
+    - /etc/nginx/sites-available/default
+  notify: Reload nginx
+
+# ── Virtual Hosts ─────────────────────────────────────────────────────────────
+#
+# nginx's site convention uses two directories:
+#   sites-available/ → all configured sites (active or not)
+#   sites-enabled/   → symlinks to sites-available that are actually active
+#
+# Enabling a site = creating a symlink. Disabling = removing the symlink.
+# This lets you toggle sites without deleting their config.
+
+- name: Create web root directories for each vhost
+  ansible.builtin.file:
+    path: "{{ item.root }}"
+    state: directory
+    owner: www-data    # www-data is the user nginx runs as — it needs to read files
+    group: www-data
+    mode: '0755'
+  loop: "{{ nginx_vhosts }}"
+  when: item.root is defined
+
+- name: Deploy default index page for each vhost
+  ansible.builtin.copy:
+    dest: "{{ item.root }}/index.html"
+    content: |
+      <!DOCTYPE html>
+      <html>
+        <head><title>{{ item.name }} — Homelab</title></head>
+        <body>
+          <h1>{{ item.name }}</h1>
+          <p>Served by nginx on {{ inventory_hostname }}</p>
+        </body>
+      </html>
+    owner: www-data
+    group: www-data
+    mode: '0644'
+    force: false  # don't overwrite if a real index.html already exists
+  loop: "{{ nginx_vhosts }}"
+  when: item.root is defined
+
+- name: Deploy virtual host configs to sites-available
+  ansible.builtin.template:
+    src: vhost.j2
+    dest: "/etc/nginx/sites-available/{{ item.name }}"
+    mode: '0644'
+  loop: "{{ nginx_vhosts }}"
+  notify: Reload nginx
+
+- name: Enable virtual hosts (create symlinks in sites-enabled)
+  ansible.builtin.file:
+    src: "/etc/nginx/sites-available/{{ item.name }}"
+    dest: "/etc/nginx/sites-enabled/{{ item.name }}"
+    state: link   # creates a symlink
+  loop: "{{ nginx_vhosts }}"
+  notify: Reload nginx
+
+# ── Firewall ──────────────────────────────────────────────────────────────────
+#
+# Open HTTP and HTTPS in the firewall.
+# We built the firewall in the common role — now we poke holes in it
+# for the specific services we're intentionally running.
+
+- name: Allow HTTP through UFW
+  community.general.ufw:
+    rule: allow
+    port: "80"
+    proto: tcp
+    comment: "nginx HTTP"
+
+- name: Allow HTTPS through UFW
+  community.general.ufw:
+    rule: allow
+    port: "443"
+    proto: tcp
+    comment: "nginx HTTPS"
+
+# ── Enable Service ────────────────────────────────────────────────────────────
+
+- name: Enable and start nginx
+  ansible.builtin.service:
+    name: nginx
+    state: started
+    enabled: true

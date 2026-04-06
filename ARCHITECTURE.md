@@ -73,11 +73,28 @@ ansible-playbook playbooks/base.yml          (run any time after bootstrap)
         │         ├── Write /etc/hosts entries
         │         └── Configure static IP via Netplan (if enabled)
         │
-        └──▶ role: systemd
+        ├──▶ role: systemd
+        │         │
+        │         ├── Configure journald log limits and retention
+        │         ├── Manage built-in services (fail2ban, ufw, snapd)
+        │         └── Deploy and enable custom service units
+        │
+        ├──▶ role: monitoring
+        │         │
+        │         ├── Create node_exporter system user
+        │         ├── Install Node Exporter binary (ARM64)
+        │         ├── Deploy systemd service unit for Node Exporter
+        │         ├── Open port 9100 in UFW
+        │         └── Install and configure logwatch (daily log digest)
+        │
+        └──▶ role: nginx
                   │
-                  ├── Configure journald log limits and retention
-                  ├── Manage built-in services (fail2ban, ufw, snapd)
-                  └── Deploy and enable custom service units
+                  ├── Install nginx
+                  ├── Deploy hardened nginx.conf (gzip, security headers)
+                  ├── Remove default site
+                  ├── Deploy virtual host configs from template
+                  ├── Enable sites via symlinks (sites-available → sites-enabled)
+                  └── Open ports 80 and 443 in UFW
 ```
 
 ## Project File Structure
@@ -124,5 +141,5 @@ ansible-homelab/
 | users        | ✅ Built    | User accounts, groups, SSH keys, sudo         |
 | networking   | ✅ Built    | Hostname, DNS, static IP, /etc/hosts          |
 | systemd      | ✅ Built    | Service management, custom units, journald    |
-| monitoring   | 🔜 Planned  | Metrics, log aggregation, alerting            |
-| nginx        | 🔜 Planned  | Web server, reverse proxy, TLS               |
+| monitoring   | ✅ Built    | Node Exporter metrics, logwatch log digests   |
+| nginx        | ✅ Built    | Web server, reverse proxy, TLS, vhosts        |

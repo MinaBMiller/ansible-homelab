@@ -1,0 +1,38 @@
+---
+# defaults/main.yml — Nginx Role
+#
+# Nginx can act as:
+#   - A web server       → serves static files directly
+#   - A reverse proxy    → sits in front of an app (Node, Python, etc.) and
+#                          forwards requests to it, handling SSL/TLS itself
+#
+# Both patterns are configured the same way — via server blocks (the nginx
+# equivalent of Apache's VirtualHost). One server block = one site/service.
+
+# List of virtual hosts (sites) nginx should serve.
+# Each entry generates a config file in /etc/nginx/sites-available/
+# and a symlink in /etc/nginx/sites-enabled/ to activate it.
+nginx_vhosts:
+  - name: "default"
+    server_name: "_"          # '_' is nginx's catch-all — matches any hostname
+    root: "/var/www/html"     # where the site's files live on disk
+    index: "index.html"
+    port: 80
+    # Set to true and provide ssl_cert/ssl_key paths to enable HTTPS
+    ssl: false
+    # Example of a reverse proxy location block (commented out by default):
+    # locations:
+    #   - path: /
+    #     proxy_pass: http://127.0.0.1:3000
+
+# Global nginx performance settings
+nginx_worker_processes: "auto"   # 'auto' = one worker per CPU core
+nginx_worker_connections: 1024   # max simultaneous connections per worker
+
+# Security headers added to every response.
+# These tell browsers how to behave and protect against common web attacks.
+nginx_security_headers:
+  - "X-Frame-Options SAMEORIGIN"              # prevents clickjacking
+  - "X-Content-Type-Options nosniff"          # prevents MIME sniffing
+  - "X-XSS-Protection 1; mode=block"          # legacy XSS filter (still useful)
+  - "Referrer-Policy no-referrer-when-downgrade"

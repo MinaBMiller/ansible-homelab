@@ -1,0 +1,16 @@
+---
+# handlers/main.yml — Nginx Role
+#
+# 'reload' applies config changes without dropping active connections.
+# 'restart' fully stops and starts nginx — needed after installs.
+# Always prefer reload over restart for a live server.
+
+- name: Reload nginx
+  ansible.builtin.service:
+    name: nginx
+    state: reloaded
+
+- name: Restart nginx
+  ansible.builtin.service:
+    name: nginx
+    state: restarted

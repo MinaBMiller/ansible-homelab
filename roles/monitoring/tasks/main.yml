@@ -1,0 +1,88 @@
+---
+# tasks/main.yml — Monitoring Role
+
+# ── Node Exporter ─────────────────────────────────────────────────────────────
+
+# Create a dedicated system user for Node Exporter.
+# system: true means it gets a low UID (under 1000) and no home directory.
+# This is the standard pattern for service accounts — they exist only to
+# own a process, not to be logged into.
+- name: Create node_exporter system user
+  ansible.builtin.user:
+    name: node_exporter
+    system: true
+    shell: /sbin/nologin
+    create_home: false
+
+# Download the pre-compiled binary from GitHub releases.
+# Node Exporter is written in Go and ships as a single static binary —
+# no dependencies, no package manager needed.
+#
+# We use the ARM64 build because UTM on Apple Silicon runs ARM Linux.
+# On Intel x86 servers you'd use 'amd64' instead.
+- name: Download Node Exporter binary
+  ansible.builtin.get_url:
+    url: "https://github.com/prometheus/node_exporter/releases/download/v{{ node_exporter_version }}/node_exporter-{{ node_exporter_version }}.linux-arm64.tar.gz"
+    dest: "/tmp/node_exporter-{{ node_exporter_version }}.tar.gz"
+    mode: '0644'
+
+- name: Extract Node Exporter archive
+  ansible.builtin.unarchive:
+    src: "/tmp/node_exporter-{{ node_exporter_version }}.tar.gz"
+    dest: /tmp/
+    remote_src: true  # the archive is already on the remote server, not your Mac
+
+- name: Install Node Exporter binary to /usr/local/bin
+  ansible.builtin.copy:
+    src: "/tmp/node_exporter-{{ node_exporter_version }}.linux-arm64/node_exporter"
+    dest: /usr/local/bin/node_exporter
+    owner: node_exporter
+    group: node_exporter
+    mode: '0755'     # executable by owner, readable by all
+    remote_src: true
+  notify: Restart node_exporter
+
+- name: Deploy Node Exporter systemd service unit
+  ansible.builtin.template:
+    src: node_exporter.service.j2
+    dest: /etc/systemd/system/node_exporter.service
+    mode: '0644'
+  notify:
+    - Reload systemd daemon
+    - Restart node_exporter
+
+- name: Enable and start Node Exporter
+  ansible.builtin.service:
+    name: node_exporter
+    state: started
+    enabled: true
+
+# Allow Prometheus (or your browser) to reach the metrics endpoint.
+# In a real environment you'd restrict this to your monitoring server's IP.
+# For the homelab we allow it from anywhere on the local network.
+- name: Open Node Exporter port in UFW
+  community.general.ufw:
+    rule: allow
+    port: "{{ node_exporter_port }}"
+    proto: tcp
+    comment: "Prometheus Node Exporter"
+
+# ── Logwatch ──────────────────────────────────────────────────────────────────
+
+- name: Install logwatch
+  ansible.builtin.apt:
+    name: logwatch
+    state: present
+    update_cache: true
+
+- name: Ensure logwatch config directory exists
+  ansible.builtin.file:
+    path: /etc/logwatch/conf
+    state: directory
+    mode: '0755'
+
+- name: Deploy logwatch configuration
+  ansible.builtin.template:
+    src: logwatch.conf.j2
+    dest: /etc/logwatch/conf/logwatch.conf
+    mode: '0644'

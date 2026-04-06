@@ -1,0 +1,42 @@
+---
+# defaults/main.yml — Monitoring Role
+#
+# This role sets up two monitoring tools:
+#   1. Node Exporter — exposes system metrics (CPU, RAM, disk, network)
+#                      in a format Prometheus can scrape
+#   2. Logwatch      — daily digest of log activity, sent to local root mail
+
+# ── Node Exporter ─────────────────────────────────────────────────────────────
+#
+# Node Exporter runs as a lightweight HTTP server on port 9100.
+# You can hit http://<server-ip>:9100/metrics in a browser to see raw metrics.
+# In a full setup, Prometheus would scrape that endpoint automatically.
+
+# Version to install — check https://github.com/prometheus/node_exporter/releases
+node_exporter_version: "1.8.2"
+
+# The port Node Exporter listens on (9100 is the standard)
+node_exporter_port: 9100
+
+# Which metric collectors to enable.
+# These are the most useful ones for a general-purpose server.
+# Full list: https://github.com/prometheus/node_exporter#collectors
+node_exporter_collectors:
+  - cpu         # CPU usage per core
+  - diskstats   # disk I/O
+  - filesystem  # disk space per mount point
+  - loadavg     # system load averages (1m, 5m, 15m)
+  - meminfo     # RAM and swap usage
+  - netdev      # network interface traffic
+  - systemd     # state of systemd units
+  - time        # system clock drift
+
+# ── Logwatch ──────────────────────────────────────────────────────────────────
+#
+# Logwatch parses system logs and produces a human-readable summary.
+# By default it runs nightly via cron and sends output to local root mail.
+# Check it with: sudo cat /var/mail/root
+
+logwatch_detail: "Low"     # Low / Med / High — how verbose the report is
+logwatch_range: "yesterday" # which day's logs to summarise
+logwatch_output: "stdout"   # stdout (captured by cron) or mail

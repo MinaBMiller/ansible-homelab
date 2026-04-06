@@ -16,3 +16,5 @@
     - users       # user accounts, groups, SSH keys, sudo access
     - networking  # hostname, DNS, static IP, /etc/hosts
     - systemd     # service management, journal log limits, custom units
+    - monitoring  # node exporter (metrics), logwatch (log digests)
+    - nginx       # web server, reverse proxy, virtual hosts

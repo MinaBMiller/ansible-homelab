@@ -1,0 +1,40 @@
+# /etc/systemd/system/node_exporter.service
+# Managed by Ansible — manual changes will be overwritten
+
+[Unit]
+Description=Prometheus Node Exporter
+Documentation=https://github.com/prometheus/node_exporter
+# Start after network is up — Node Exporter needs to bind to a port
+After=network.target
+
+[Service]
+# Run as a dedicated low-privilege user — never run exporters as root
+User=node_exporter
+Group=node_exporter
+Type=simple
+
+# Build the --collector flags from the list in defaults/main.yml
+ExecStart=/usr/local/bin/node_exporter \
+  --web.listen-address=":{{ node_exporter_port }}" \
+  {% for collector in node_exporter_collectors %}
+  --collector.{{ collector }} \
+  {% endfor %}
+  --log.level=warn
+
+# Restart automatically if it crashes
+Restart=on-failure
+RestartSec=5
+
+# Security hardening for the service process itself:
+# Even if node_exporter were compromised, these limits contain the damage.
+NoNewPrivileges=true          # process cannot gain more privileges than it started with
+ProtectSystem=strict          # /usr, /boot, /etc are read-only to this process
+ProtectHome=true              # /home, /root, /run/user are invisible to this process
+PrivateTmp=true               # gets its own isolated /tmp
+
+StandardOutput=journal
+StandardError=journal
+SyslogIdentifier=node_exporter
+
+[Install]
+WantedBy=multi-user.target
