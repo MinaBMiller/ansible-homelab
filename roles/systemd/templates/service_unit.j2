@@ -1,0 +1,44 @@
+# /etc/systemd/system/{{ item.name }}.service
+# Managed by Ansible — manual changes will be overwritten
+#
+# A systemd unit file has three sections:
+#   [Unit]    — metadata and dependencies
+#   [Service] — how to run the process
+#   [Install] — when/how to enable it at boot
+
+[Unit]
+Description={{ item.description }}
+# After= tells systemd what must be running before this service starts.
+# network.target means "the network stack is up".
+After=network.target
+
+[Service]
+# The full command systemd will run to start this service
+ExecStart={{ item.exec_start }}
+
+# Restart policy — what to do if the process exits:
+#   no          → don't restart (default)
+#   on-failure  → restart only if it exited with an error
+#   always      → restart no matter what (even clean exits)
+Restart={{ item.restart | default('on-failure') }}
+
+# How long to wait before restarting after a failure (seconds)
+RestartSec={{ item.restart_sec | default(5) }}
+
+# Run the service as this user instead of root (principle of least privilege)
+User={{ item.user | default('ansible') }}
+Group={{ item.group | default('ansible') }}
+
+# Capture all stdout/stderr output into the systemd journal
+# You can then read it with: journalctl -u {{ item.name }}
+StandardOutput=journal
+StandardError=journal
+
+# SyslogIdentifier tags log entries so you can filter them:
+# journalctl -u {{ item.name }} --identifier={{ item.name }}
+SyslogIdentifier={{ item.name }}
+
+[Install]
+# WantedBy=multi-user.target means: enable this service in normal (non-GUI) boot
+# This is the standard target for server services
+WantedBy=multi-user.target

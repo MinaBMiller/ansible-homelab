@@ -1,0 +1,75 @@
+---
+# tasks/main.yml — Systemd Role
+
+# ── Journal Configuration ─────────────────────────────────────────────────────
+#
+# journald.conf controls how systemd-journald stores and rotates logs.
+# lineinfile finds the matching line and replaces it — same pattern we used
+# for SSH config in the common role.
+#
+# All changes notify the handler to restart journald so they take effect.
+
+- name: Configure journald log retention and size limits
+  ansible.builtin.lineinfile:
+    path: /etc/systemd/journald.conf
+    regexp: "{{ item.regexp }}"
+    line: "{{ item.line }}"
+    state: present
+  loop:
+    - { regexp: '^#?SystemMaxUse=',      line: "SystemMaxUse={{ journald_system_max_use }}" }
+    - { regexp: '^#?SystemKeepFree=',    line: "SystemKeepFree={{ journald_system_keep_free }}" }
+    - { regexp: '^#?SystemMaxFileSize=', line: "SystemMaxFileSize={{ journald_system_max_file_size }}" }
+    - { regexp: '^#?MaxRetentionSec=',   line: "MaxRetentionSec={{ journald_max_retention }}" }
+  notify: Restart journald
+
+# ── Manage Existing Services ──────────────────────────────────────────────────
+#
+# The 'service' module controls systemd units.
+# We loop over managed_services from defaults/main.yml.
+#
+# Important distinction:
+#   enabled: true  → the service starts automatically on boot (survives reboot)
+#   state: started → the service is running right now
+#
+# A service can be running but not enabled (won't survive reboot), or
+# enabled but not running (will start on next boot but isn't running now).
+# You almost always want both, or neither.
+
+- name: Set service state and boot behaviour
+  ansible.builtin.service:
+    name: "{{ item.name }}"
+    state: "{{ item.state }}"
+    enabled: "{{ item.enabled }}"
+  loop: "{{ managed_services }}"
+  # ignore_errors lets the play continue if a service doesn't exist on this host
+  # e.g. snapd may already be removed on a minimal install
+  ignore_errors: true
+
+# ── Custom Service Units ──────────────────────────────────────────────────────
+#
+# These tasks only run if custom_services is non-empty.
+#
+# Step 1: deploy the .service file using our Jinja2 template
+# Step 2: run 'systemctl daemon-reload' so systemd picks up the new file
+# Step 3: enable and start the service
+#
+# daemon-reload is required any time you add or change a unit file —
+# systemd caches unit definitions in memory and won't see the new file
+# until you explicitly tell it to reload.
+
+- name: Deploy custom service unit files
+  ansible.builtin.template:
+    src: service_unit.j2
+    dest: "/etc/systemd/system/{{ item.name }}.service"
+    mode: '0644'
+  loop: "{{ custom_services }}"
+  when: custom_services | length > 0
+  notify: Reload systemd daemon
+
+- name: Enable and start custom services
+  ansible.builtin.service:
+    name: "{{ item.name }}"
+    state: started
+    enabled: true
+  loop: "{{ custom_services }}"
+  when: custom_services | length > 0

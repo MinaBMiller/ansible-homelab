@@ -66,12 +66,18 @@ ansible-playbook playbooks/base.yml          (run any time after bootstrap)
         │         ├── Grant/revoke sudo per user
         │         └── Lock down home directories (0700)
         │
-        └──▶ role: networking
+        ├──▶ role: networking
+        │         │
+        │         ├── Set hostname
+        │         ├── Configure DNS resolvers (1.1.1.1, 8.8.8.8)
+        │         ├── Write /etc/hosts entries
+        │         └── Configure static IP via Netplan (if enabled)
+        │
+        └──▶ role: systemd
                   │
-                  ├── Set hostname
-                  ├── Configure DNS resolvers (1.1.1.1, 8.8.8.8)
-                  ├── Write /etc/hosts entries
-                  └── Configure static IP via Netplan (if enabled)
+                  ├── Configure journald log limits and retention
+                  ├── Manage built-in services (fail2ban, ufw, snapd)
+                  └── Deploy and enable custom service units
 ```
 
 ## Project File Structure
@@ -117,6 +123,6 @@ ansible-homelab/
 | common       | ✅ Built    | System updates, firewall, SSH hardening       |
 | users        | ✅ Built    | User accounts, groups, SSH keys, sudo         |
 | networking   | ✅ Built    | Hostname, DNS, static IP, /etc/hosts          |
-| systemd      | 🔜 Next     | Service management, custom units, journald    |
+| systemd      | ✅ Built    | Service management, custom units, journald    |
 | monitoring   | 🔜 Planned  | Metrics, log aggregation, alerting            |
 | nginx        | 🔜 Planned  | Web server, reverse proxy, TLS               |

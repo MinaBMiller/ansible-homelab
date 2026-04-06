@@ -1,0 +1,57 @@
+---
+# defaults/main.yml — Systemd Role
+
+# ── Journal (Log) Settings ────────────────────────────────────────────────────
+#
+# journald stores logs in a binary format under /var/log/journal.
+# Without limits, logs can grow to fill your entire disk over time.
+# These settings cap how much space the journal is allowed to use.
+
+# Maximum disk space the journal can use total
+journald_system_max_use: "500M"
+
+# Start deleting old logs when disk space drops below this threshold
+journald_system_keep_free: "1G"
+
+# Maximum size of a single journal file before it gets rotated
+journald_system_max_file_size: "50M"
+
+# How long to keep journal logs (empty = keep forever, use "1month", "2weeks", etc.)
+journald_max_retention: "1month"
+
+# ── Services to Manage ────────────────────────────────────────────────────────
+#
+# A list of built-in system services to explicitly enable or disable.
+# state: started/stopped — is it running right now?
+# enabled: true/false    — does it start automatically on boot?
+
+managed_services:
+  - name: fail2ban
+    state: started
+    enabled: true
+  - name: ufw
+    state: started
+    enabled: true
+  - name: unattended-upgrades
+    state: started
+    enabled: true
+  # Disable some services that are on by default but not needed in a homelab
+  - name: snapd
+    state: stopped
+    enabled: false
+
+# ── Custom Service Units ──────────────────────────────────────────────────────
+#
+# Define any custom services you want to create from scratch.
+# These use the service_unit.j2 template to generate .service files.
+# Empty by default — add entries when you have something to run as a service.
+#
+# Example:
+# custom_services:
+#   - name: my-script
+#     description: "My custom background script"
+#     exec_start: /usr/local/bin/my-script.sh
+#     restart: on-failure
+#     user: ansible
+
+custom_services: []
