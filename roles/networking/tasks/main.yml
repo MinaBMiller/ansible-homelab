@@ -1,0 +1,85 @@
+---
+# tasks/main.yml — Networking Role
+
+# ── Hostname ──────────────────────────────────────────────────────────────────
+#
+# A server's hostname is its name on the network. It shows up in:
+#   - your shell prompt (mina@ubuntu-01:~$)
+#   - system logs (/var/log/syslog)
+#   - anything that does reverse DNS lookup
+#
+# 'hostname' module sets it immediately. Writing to /etc/hostname makes it
+# persist across reboots. Both are needed.
+
+- name: Set system hostname
+  ansible.builtin.hostname:
+    name: "{{ server_hostname }}"
+
+- name: Persist hostname across reboots
+  ansible.builtin.copy:
+    dest: /etc/hostname
+    content: "{{ server_hostname }}\n"
+    mode: '0644'
+
+# ── /etc/hosts ────────────────────────────────────────────────────────────────
+#
+# /etc/hosts is checked BEFORE DNS when resolving names.
+# Linux looks up names in this order: hosts file → DNS → other sources.
+# (This order is defined in /etc/nsswitch.conf if you ever want to look it up.)
+#
+# blockinfile writes a clearly marked block so Ansible-managed entries
+# are easy to identify and won't clash with the default entries (like 127.0.0.1).
+
+- name: Add homelab hosts to /etc/hosts
+  ansible.builtin.blockinfile:
+    path: /etc/hosts
+    marker: "# {mark} ANSIBLE MANAGED — homelab hosts"
+    block: |
+      {% for entry in hosts_entries %}
+      {{ entry.ip }}  {{ entry.name }}
+      {% endfor %}
+
+# ── DNS Resolvers ─────────────────────────────────────────────────────────────
+#
+# systemd-resolved is the DNS resolver service on modern Ubuntu.
+# It reads its config from /etc/systemd/resolved.conf.
+#
+# 'lineinfile' finds a line matching the regexp and replaces it.
+# If no match is found, it adds the line. This is safer than overwriting
+# the whole file because it preserves other settings in resolved.conf.
+#
+# After changing DNS config, the resolved service needs a restart to apply it.
+
+- name: Configure DNS resolvers in systemd-resolved
+  ansible.builtin.lineinfile:
+    path: /etc/systemd/resolved.conf
+    regexp: '^#?DNS='
+    line: "DNS={{ dns_servers | join(' ') }}"
+  notify: Restart systemd-resolved
+
+- name: Enable fallback DNS
+  ansible.builtin.lineinfile:
+    path: /etc/systemd/resolved.conf
+    regexp: '^#?FallbackDNS='
+    line: "FallbackDNS=8.8.4.4 1.0.0.1"
+  notify: Restart systemd-resolved
+
+# ── Static IP (Netplan) ───────────────────────────────────────────────────────
+#
+# This block only runs when configure_static_ip is set to true in your vars.
+# 'when' is Ansible's conditional — skips the task entirely if false.
+#
+# The template module reads netplan.j2, fills in all the {{ variables }},
+# and writes the result to the server. Then 'netplan apply' activates it
+# without requiring a reboot.
+#
+# WARNING: applying a new network config over SSH can drop your connection
+# if the IP changes. Make sure static_ip matches what's in your inventory.
+
+- name: Deploy static IP configuration via Netplan
+  ansible.builtin.template:
+    src: netplan.j2
+    dest: /etc/netplan/99-homelab.yaml
+    mode: '0600'  # netplan files must not be world-readable (contain network details)
+  when: configure_static_ip
+  notify: Apply Netplan

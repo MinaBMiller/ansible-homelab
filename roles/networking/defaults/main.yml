@@ -1,0 +1,31 @@
+---
+# defaults/main.yml — Networking Role
+#
+# These are the default values. Override them in group_vars or host_vars
+# to give each server its own identity.
+
+# The server's hostname — shows up in your shell prompt, logs, and monitoring
+# Override this per host in inventory/host_vars/<hostname>.yml
+server_hostname: "ubuntu-01"
+
+# DNS resolvers — the servers this machine will ask to resolve domain names.
+# 1.1.1.1 = Cloudflare (fast, privacy-focused)
+# 8.8.8.8 = Google
+# In the future you could point this at your own local DNS server
+dns_servers:
+  - "1.1.1.1"
+  - "8.8.8.8"
+
+# Static IP configuration.
+# If you want DHCP (dynamic IP), set configure_static_ip to false.
+configure_static_ip: false
+static_ip: ""         # e.g. "192.168.64.10"
+static_prefix: "24"   # /24 means your subnet is 192.168.64.0–192.168.64.255
+static_gateway: ""    # e.g. "192.168.64.1" — your router's IP
+network_interface: "enp0s1"  # the network interface name (check with `ip a` on your VM)
+
+# Additional entries to write into /etc/hosts
+# Lets servers find each other by name without a DNS server
+hosts_entries:
+  - ip: "192.168.64.10"
+    name: "ubuntu-01"

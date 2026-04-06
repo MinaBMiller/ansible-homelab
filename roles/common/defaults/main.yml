@@ -17,4 +17,4 @@ common_packages:
 ssh_port: 22
 
 # Timezone for all servers
-timezone: "America/New_York"
+timezone: "America/Los_Angeles"

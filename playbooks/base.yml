@@ -12,5 +12,6 @@
   become: true  # most system tasks require root
 
   roles:
-    - common  # system baseline: updates, packages, firewall, SSH hardening
-    - users   # user accounts, groups, SSH keys, sudo access
+    - common      # system baseline: updates, packages, firewall, SSH hardening
+    - users       # user accounts, groups, SSH keys, sudo access
+    - networking  # hostname, DNS, static IP, /etc/hosts

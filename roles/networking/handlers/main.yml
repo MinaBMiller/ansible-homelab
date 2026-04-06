@@ -1,0 +1,16 @@
+---
+# handlers/main.yml — Networking Role
+#
+# Remember: handlers only run if notified, and only once at the end of the play.
+
+- name: Restart systemd-resolved
+  ansible.builtin.service:
+    name: systemd-resolved
+    state: restarted
+
+- name: Apply Netplan
+  ansible.builtin.command:
+    cmd: netplan apply
+  # 'changed_when: true' tells Ansible to always mark this as a change
+  # since 'command' tasks don't know whether something actually changed
+  changed_when: true

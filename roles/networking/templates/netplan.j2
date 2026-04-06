@@ -1,0 +1,22 @@
+# /etc/netplan/99-homelab.yaml
+# Managed by Ansible — manual changes will be overwritten
+#
+# Netplan is Ubuntu's network configuration system.
+# It reads YAML files from /etc/netplan/ and applies them to the OS.
+# The '99-' prefix means this file loads last and takes priority.
+
+network:
+  version: 2
+  ethernets:
+    {{ network_interface }}:
+      dhcp4: false
+      addresses:
+        - {{ static_ip }}/{{ static_prefix }}
+      routes:
+        - to: default
+          via: {{ static_gateway }}
+      nameservers:
+        addresses:
+          {% for dns in dns_servers %}
+          - {{ dns }}
+          {% endfor %}
