@@ -1,0 +1,16 @@
+---
+# base.yml
+#
+# The baseline configuration applied to every server.
+# Run this after bootstrap.yml has been run once.
+#
+# Usage:
+#   ansible-playbook playbooks/base.yml
+
+- name: Apply base configuration to all servers
+  hosts: all
+  become: true  # most system tasks require root
+
+  roles:
+    - common  # system baseline: updates, packages, firewall, SSH hardening
+    - users   # user accounts, groups, SSH keys, sudo access

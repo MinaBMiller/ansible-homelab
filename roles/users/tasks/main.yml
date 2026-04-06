@@ -1,0 +1,110 @@
+---
+# tasks/main.yml — Users Role
+#
+# Ansible runs these top-to-bottom. The order matters:
+# groups must exist before you can assign users to them.
+
+# ── Groups ────────────────────────────────────────────────────────────────────
+#
+# Linux identifies groups internally by a GID (Group ID) — a number.
+# The name is just a human-friendly label for that number.
+# Setting an explicit GID means the ID stays consistent across every server,
+# which matters when files are shared over a network (NFS, etc.).
+
+- name: Ensure required groups exist
+  ansible.builtin.group:
+    name: "{{ item.name }}"
+    gid: "{{ item.gid }}"
+    state: present
+  loop: "{{ sysadmin_groups }}"
+
+# ── Users ─────────────────────────────────────────────────────────────────────
+#
+# 'loop' iterates over the sysadmin_users list and runs this task once per user.
+# '{{ item.X }}' refers to the current user's fields.
+#
+# uid range 2000+ is convention for human/service accounts you create yourself.
+# System accounts (daemons, services) typically use UIDs below 1000.
+
+- name: Create or remove user accounts
+  ansible.builtin.user:
+    name: "{{ item.name }}"
+    # uid is optional but pinning it keeps IDs consistent across servers
+    uid: "{{ item.uid | default(omit) }}"
+    groups: "{{ item.groups | default([]) }}"
+    append: true        # add to groups, don't replace existing group membership
+    shell: "{{ item.shell | default('/bin/bash') }}"
+    create_home: true
+    state: "{{ item.state | default('present') }}"
+  loop: "{{ sysadmin_users }}"
+
+# ── SSH Keys ──────────────────────────────────────────────────────────────────
+#
+# SSH key authentication: instead of a password, the server checks whether
+# your private key (on your machine) matches a public key stored on the server.
+# The public key is stored in ~/.ssh/authorized_keys for each user.
+#
+# 'when' is a condition — this task only runs for users that have an ssh_key
+# defined AND whose state isn't 'absent' (no point adding keys to deleted users).
+
+- name: Add SSH authorized keys
+  ansible.builtin.authorized_key:
+    user: "{{ item.name }}"
+    key: "{{ item.ssh_key }}"
+    state: present
+    exclusive: true  # removes any keys NOT in this list — prevents stale access
+  loop: "{{ sysadmin_users }}"
+  when:
+    - item.ssh_key is defined
+    - item.state | default('present') == 'present'
+
+# ── Sudo Access ───────────────────────────────────────────────────────────────
+#
+# Instead of adding users to the 'sudo' group (which grants broad access),
+# we write individual sudoers drop-in files under /etc/sudoers.d/.
+# This gives us fine-grained control — one file per user, easy to revoke.
+#
+# 'validate' runs visudo to check syntax before writing. A bad sudoers file
+# can lock you out of sudo entirely, so this safety check is important.
+#
+# We also handle removal: if a user's sudo flag is false/absent, we delete
+# their sudoers file.
+
+- name: Grant passwordless sudo to users who need it
+  ansible.builtin.copy:
+    dest: "/etc/sudoers.d/{{ item.name }}"
+    content: "{{ item.name }} ALL=(ALL) NOPASSWD:ALL\n"
+    mode: '0440'
+    validate: /usr/sbin/visudo -cf %s
+  loop: "{{ sysadmin_users }}"
+  when:
+    - item.sudo | default(false)
+    - item.state | default('present') == 'present'
+
+- name: Remove sudo access for users who no longer need it
+  ansible.builtin.file:
+    path: "/etc/sudoers.d/{{ item.name }}"
+    state: absent
+  loop: "{{ sysadmin_users }}"
+  when: >
+    not (item.sudo | default(false)) or
+    item.state | default('present') == 'absent'
+
+# ── Home Directory Permissions ────────────────────────────────────────────────
+#
+# Linux permission bits in octal:
+#   0700 = rwx------ = only the owner can read, write, or enter the directory
+#   0755 = rwxr-xr-x = owner can do everything; others can read and enter
+#
+# Home directories should be 0700 — there's no reason another regular user
+# should be able to browse someone else's home folder.
+
+- name: Lock down home directory permissions
+  ansible.builtin.file:
+    path: "/home/{{ item.name }}"
+    owner: "{{ item.name }}"
+    group: "{{ item.name }}"
+    mode: '0700'
+    state: directory
+  loop: "{{ sysadmin_users }}"
+  when: item.state | default('present') == 'present'

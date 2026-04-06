@@ -1,0 +1,45 @@
+---
+# bootstrap.yml
+#
+# Run this ONCE on a brand new server, as root.
+# It creates the 'ansible' user and sets up SSH key auth so all future
+# playbooks can connect without a password.
+#
+# Usage:
+#   ansible-playbook playbooks/bootstrap.yml --ask-pass -u root
+#
+#   --ask-pass  → prompts for the root password (only needed this one time)
+#   -u root     → connect as root (only for bootstrap; never used after this)
+
+- name: Bootstrap a new server
+  hosts: all
+  become: true  # run tasks as root (via sudo)
+
+  vars:
+    # Change this to point to your actual SSH public key on your Mac
+    ssh_public_key: "{{ lookup('file', '~/.ssh/id_ed25519.pub') }}"
+
+  tasks:
+
+    - name: Create the ansible user
+      ansible.builtin.user:
+        name: ansible
+        shell: /bin/bash
+        create_home: true
+        # 'wheel' or 'sudo' group depending on the distro — Ubuntu uses sudo
+        groups: sudo
+        append: true
+
+    - name: Add SSH public key to ansible user
+      ansible.builtin.authorized_key:
+        user: ansible
+        key: "{{ ssh_public_key }}"
+        state: present
+
+    - name: Allow ansible user to run sudo without a password
+      ansible.builtin.copy:
+        dest: /etc/sudoers.d/ansible
+        content: "ansible ALL=(ALL) NOPASSWD:ALL\n"
+        # sudoers files must be mode 0440 — world-writable sudoers is a security hole
+        mode: '0440'
+        validate: /usr/sbin/visudo -cf %s  # validate before writing, prevents lockout

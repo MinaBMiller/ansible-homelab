@@ -1,0 +1,13 @@
+---
+# handlers/main.yml
+#
+# Handlers are tasks that only run when notified by another task.
+# They run ONCE at the end of the play, even if notified multiple times.
+#
+# This is useful for restarts — if 3 different tasks modify SSH config,
+# you don't want to restart SSH 3 times. The handler runs once at the end.
+
+- name: Restart SSH
+  ansible.builtin.service:
+    name: ssh
+    state: restarted

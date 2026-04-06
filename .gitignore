@@ -1,0 +1,15 @@
+# Never commit secrets or local overrides
+*.env
+.env*
+secrets/
+vault_pass.txt
+
+# Ansible retry files (created when a playbook fails partway through)
+*.retry
+
+# macOS noise
+.DS_Store
+
+# Editor directories
+.vscode/
+.idea/

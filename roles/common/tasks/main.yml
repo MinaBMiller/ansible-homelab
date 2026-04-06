@@ -1,0 +1,83 @@
+---
+# tasks/main.yml
+#
+# Ansible runs these tasks top-to-bottom on every targeted host.
+# Each task calls a module — a built-in Ansible function that does one thing.
+
+# ── System Updates ────────────────────────────────────────────────────────────
+
+- name: Update apt package cache
+  ansible.builtin.apt:
+    update_cache: true
+    cache_valid_time: 3600  # only re-fetch if cache is older than 1 hour
+
+- name: Upgrade all packages to latest versions
+  ansible.builtin.apt:
+    upgrade: dist  # 'dist' handles dependency changes, safer than 'full'
+
+# ── Install Base Packages ─────────────────────────────────────────────────────
+
+- name: Install common packages
+  ansible.builtin.apt:
+    name: "{{ common_packages }}"  # references the list in defaults/main.yml
+    state: present
+
+# ── Timezone ──────────────────────────────────────────────────────────────────
+
+- name: Set system timezone
+  community.general.timezone:
+    name: "{{ timezone }}"
+
+# ── Firewall (UFW) ────────────────────────────────────────────────────────────
+#
+# UFW (Uncomplicated Firewall) is a front-end for iptables — the Linux kernel's
+# packet filtering system. The strategy here: deny everything by default,
+# then explicitly allow only what's needed.
+
+- name: Set UFW default policy — deny all incoming traffic
+  community.general.ufw:
+    default: deny
+    direction: incoming
+
+- name: Set UFW default policy — allow all outgoing traffic
+  community.general.ufw:
+    default: allow
+    direction: outgoing
+
+- name: Allow SSH through the firewall
+  community.general.ufw:
+    rule: allow
+    port: "{{ ssh_port }}"
+    proto: tcp
+
+- name: Enable UFW
+  community.general.ufw:
+    state: enabled
+
+# ── SSH Hardening ─────────────────────────────────────────────────────────────
+#
+# These changes make the SSH daemon more secure.
+# 'notify' triggers the handler in handlers/main.yml to restart SSH
+# — but only if this task actually changed something.
+
+- name: Harden SSH configuration
+  ansible.builtin.lineinfile:
+    path: /etc/ssh/sshd_config
+    regexp: "{{ item.regexp }}"
+    line: "{{ item.line }}"
+    state: present
+  loop:
+    - { regexp: '^#?PermitRootLogin', line: 'PermitRootLogin no' }
+    - { regexp: '^#?PasswordAuthentication', line: 'PasswordAuthentication no' }
+    - { regexp: '^#?X11Forwarding', line: 'X11Forwarding no' }
+  notify: Restart SSH  # triggers the handler only when a change is made
+
+# ── Automatic Security Updates ────────────────────────────────────────────────
+
+- name: Enable unattended security upgrades
+  ansible.builtin.copy:
+    dest: /etc/apt/apt.conf.d/20auto-upgrades
+    content: |
+      APT::Periodic::Update-Package-Lists "1";
+      APT::Periodic::Unattended-Upgrade "1";
+    mode: '0644'

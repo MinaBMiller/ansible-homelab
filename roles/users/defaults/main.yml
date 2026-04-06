@@ -1,0 +1,24 @@
+---
+# defaults/main.yml — Users Role
+#
+# This file defines the default shape of your users.
+# You override these in inventory/group_vars/ to define real users per environment.
+#
+# Each user in the list has:
+#   name     → the Linux username
+#   groups   → list of groups to add them to
+#   shell    → their login shell (/bin/bash is standard; /sbin/nologin blocks login)
+#   sudo     → whether they get passwordless sudo
+#   ssh_key  → their public SSH key (how they'll log in — no passwords)
+#   state    → 'present' to create, 'absent' to remove
+
+# This is an empty default — real users are defined in group_vars
+# so different environments can have different users
+sysadmin_users: []
+
+# Groups to ensure exist on the server before users are assigned to them
+sysadmin_groups:
+  - name: developers
+    gid: 2000   # GID = Group ID, a number Linux uses internally to track the group
+  - name: ops
+    gid: 2001
