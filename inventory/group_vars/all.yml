@@ -16,18 +16,8 @@ sysadmin_users:
       - sudo
     shell: /bin/bash
     sudo: true
-    # Replace this with your actual public key
+    # Replace this with your actual public key (run: cat ~/.ssh/id_ed25519.pub)
     ssh_key: "ssh-ed25519 AAAAC3... your-key-here"
-    state: present
-
-  # Example of a developer account — access to app files but no sudo
-  - name: developer
-    uid: 2001
-    groups:
-      - developers
-    shell: /bin/bash
-    sudo: false
-    ssh_key: "ssh-ed25519 AAAAC3... developer-key-here"
     state: present
 
   # Example of a service account — no login shell, no SSH, just runs a process
@@ -40,3 +30,12 @@ sysadmin_users:
     shell: /sbin/nologin
     sudo: false
     state: present
+
+  # Add more users here when needed, e.g.:
+  # - name: developer
+  #   uid: 2001
+  #   groups: [developers]
+  #   shell: /bin/bash
+  #   sudo: false
+  #   ssh_key: "ssh-ed25519 AAAAC3..."
+  #   state: present
