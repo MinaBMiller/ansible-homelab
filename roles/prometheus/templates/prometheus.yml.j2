@@ -1,0 +1,34 @@
+# /etc/prometheus/prometheus.yml
+# Managed by Ansible — manual changes will be overwritten
+#
+# Prometheus configuration: what to scrape, how often, and where to find it.
+
+global:
+  # How often Prometheus pulls metrics from each target.
+  # 15s is a good balance between resolution and resource usage.
+  scrape_interval: {{ prometheus_scrape_interval }}
+
+  # How often to evaluate alerting rules (if configured).
+  evaluation_interval: {{ prometheus_scrape_interval }}
+
+# ── Scrape Targets ────────────────────────────────────────────────────────────
+#
+# Each job defines a group of targets that expose metrics at /metrics.
+# Prometheus sends an HTTP GET to each target on the scrape_interval
+# and stores the response as time-series data.
+
+scrape_configs:
+  # Prometheus monitors itself — useful for debugging scrape failures
+  - job_name: "prometheus"
+    static_configs:
+      - targets: ["localhost:{{ prometheus_port }}"]
+
+{% for job in prometheus_scrape_targets %}
+  - job_name: "{{ job.job_name }}"
+    static_configs:
+      - targets:
+{% for target in job.targets %}
+          - "{{ target }}"
+{% endfor %}
+
+{% endfor %}

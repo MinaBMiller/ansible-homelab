@@ -1,0 +1,23 @@
+---
+# defaults/main.yml — Loki Role
+#
+# Loki is a log aggregation system from Grafana Labs.
+# Unlike Elasticsearch (which indexes full log text), Loki only indexes
+# labels (metadata) and stores log lines compressed. This makes it
+# lightweight and fast — perfect for a homelab.
+#
+# Loki receives logs from Promtail (a log shipping agent) and makes
+# them searchable through Grafana.
+
+# Docker images
+loki_image: "grafana/loki:latest"
+promtail_image: "grafana/promtail:latest"
+
+# Where Loki stores log data on the host
+loki_data_dir: "/var/lib/loki"
+
+# Port Loki listens on for log ingestion
+loki_port: 3100
+
+# How long to retain logs
+loki_retention: "720h"  # 30 days

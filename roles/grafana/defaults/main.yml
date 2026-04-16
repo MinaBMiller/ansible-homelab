@@ -1,0 +1,21 @@
+---
+# defaults/main.yml — Grafana Role
+#
+# Grafana is a visualization platform. It connects to data sources
+# (Prometheus for metrics, Loki for logs) and lets you build dashboards
+# with graphs, tables, alerts, and more.
+#
+# It runs as a web app — you access it in your browser.
+
+# Docker image
+grafana_image: "grafana/grafana:latest"
+
+# Where Grafana stores its data (dashboards, users, settings)
+grafana_data_dir: "/var/lib/grafana"
+
+# Port Grafana's web UI listens on
+grafana_port: 3000
+
+# Default admin credentials (change after first login)
+grafana_admin_user: "admin"
+grafana_admin_password: "admin"

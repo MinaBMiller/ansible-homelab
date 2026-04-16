@@ -1,0 +1,65 @@
+---
+# tasks/main.yml — Prometheus Role
+#
+# Runs Prometheus as a Docker container. It scrapes metrics from
+# Node Exporter (system stats) and stores them as time-series data
+# that Grafana can query and visualize.
+
+# ── Directories ───────────────────────────────────────────────────────────────
+
+- name: Create Prometheus config directory
+  ansible.builtin.file:
+    path: /etc/prometheus
+    state: directory
+    owner: root
+    group: root
+    mode: '0755'
+
+- name: Create Prometheus data directory
+  ansible.builtin.file:
+    path: "{{ prometheus_data_dir }}"
+    state: directory
+    owner: "65534"   # 'nobody' user — Prometheus runs as this inside the container
+    group: "65534"
+    mode: '0755'
+
+# ── Configuration ─────────────────────────────────────────────────────────────
+
+- name: Deploy Prometheus configuration
+  ansible.builtin.template:
+    src: prometheus.yml.j2
+    dest: /etc/prometheus/prometheus.yml
+    mode: '0644'
+  notify: Restart Prometheus container
+
+# ── Container ─────────────────────────────────────────────────────────────────
+
+- name: Pull Prometheus Docker image
+  community.docker.docker_image:
+    name: "{{ prometheus_image }}"
+    source: pull
+
+- name: Run Prometheus container
+  community.docker.docker_container:
+    name: prometheus
+    image: "{{ prometheus_image }}"
+    state: started
+    restart_policy: unless-stopped
+    network_mode: host
+    volumes:
+      - "/etc/prometheus:/etc/prometheus"
+      - "{{ prometheus_data_dir }}:/prometheus"
+    command:
+      - "--config.file=/etc/prometheus/prometheus.yml"
+      - "--storage.tsdb.path=/prometheus"
+      - "--storage.tsdb.retention.time={{ prometheus_retention }}"
+      - "--web.listen-address=0.0.0.0:{{ prometheus_port }}"
+
+# ── Firewall ──────────────────────────────────────────────────────────────────
+
+- name: Allow Prometheus port through UFW
+  community.general.ufw:
+    rule: allow
+    port: "{{ prometheus_port }}"
+    proto: tcp
+    comment: "Prometheus"

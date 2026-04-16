@@ -1,0 +1,7 @@
+---
+# handlers/main.yml — Prometheus Role
+
+- name: Restart Prometheus container
+  community.docker.docker_container:
+    name: prometheus
+    restart: true

@@ -1,0 +1,31 @@
+---
+# defaults/main.yml — Prometheus Role
+#
+# Prometheus is a time-series database that collects metrics by "scraping"
+# HTTP endpoints. It pulls data from targets (like Node Exporter) on a
+# schedule and stores it for querying and alerting.
+#
+# Think of it as a data collector — it doesn't display anything itself,
+# but Grafana connects to it to build dashboards.
+
+# Docker image
+prometheus_image: "prom/prometheus:latest"
+
+# Where Prometheus stores its time-series data on the host
+prometheus_data_dir: "/var/lib/prometheus"
+
+# How long to keep metrics data
+prometheus_retention: "30d"
+
+# How often Prometheus scrapes each target (in seconds)
+prometheus_scrape_interval: "15s"
+
+# Port Prometheus listens on
+prometheus_port: 9090
+
+# Targets to scrape — each entry becomes a scrape job.
+# Node Exporter is already running on port 9100 from the monitoring role.
+prometheus_scrape_targets:
+  - job_name: "node"
+    targets:
+      - "localhost:9100"

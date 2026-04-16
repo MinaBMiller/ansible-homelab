@@ -1,0 +1,50 @@
+# /etc/promtail/promtail-config.yml
+# Managed by Ansible
+#
+# Promtail is the log shipping agent — it reads log files from disk
+# and sends them to Loki. Think of it as the bridge between your
+# log files and the Loki database.
+
+server:
+  http_listen_port: 9080
+
+positions:
+  # Promtail tracks how far it's read in each file so it doesn't
+  # re-send logs after a restart.
+  filename: /tmp/positions.yaml
+
+clients:
+  - url: http://localhost:{{ loki_port }}/loki/api/v1/push
+
+scrape_configs:
+  # ── Suricata Alerts ───────────────────────────────────────────────────────
+  #
+  # Reads Suricata's EVE JSON log. Each line is a JSON object containing
+  # alert details, DNS queries, HTTP requests, TLS handshakes, etc.
+  # The 'json' pipeline stage parses each line and extracts fields
+  # that become searchable labels in Grafana.
+
+  - job_name: suricata
+    static_configs:
+      - targets:
+          - localhost
+        labels:
+          job: suricata
+          __path__: /var/log/suricata/eve.json
+
+  # ── System Logs ─────────────────────────────────────────────────────────
+  - job_name: syslog
+    static_configs:
+      - targets:
+          - localhost
+        labels:
+          job: syslog
+          __path__: /var/log/syslog
+
+  - job_name: auth
+    static_configs:
+      - targets:
+          - localhost
+        labels:
+          job: auth
+          __path__: /var/log/auth.log

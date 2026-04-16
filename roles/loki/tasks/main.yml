@@ -1,0 +1,78 @@
+---
+# tasks/main.yml — Loki Role
+#
+# Deploys Loki (log storage) and Promtail (log shipper) as Docker containers.
+# Promtail reads log files from the host and sends them to Loki.
+# Grafana then queries Loki to display and search logs.
+
+# ── Directories ───────────────────────────────────────────────────────────────
+
+- name: Create Loki config directory
+  ansible.builtin.file:
+    path: /etc/loki
+    state: directory
+    mode: '0755'
+
+- name: Create Promtail config directory
+  ansible.builtin.file:
+    path: /etc/promtail
+    state: directory
+    mode: '0755'
+
+- name: Create Loki data directory
+  ansible.builtin.file:
+    path: "{{ loki_data_dir }}"
+    state: directory
+    owner: "10001"   # Loki's default user inside the container
+    group: "10001"
+    mode: '0755'
+
+# ── Configuration ─────────────────────────────────────────────────────────────
+
+- name: Deploy Loki configuration
+  ansible.builtin.template:
+    src: loki-config.yml.j2
+    dest: /etc/loki/loki-config.yml
+    mode: '0644'
+
+- name: Deploy Promtail configuration
+  ansible.builtin.template:
+    src: promtail-config.yml.j2
+    dest: /etc/promtail/promtail-config.yml
+    mode: '0644'
+
+# ── Containers ────────────────────────────────────────────────────────────────
+
+- name: Pull Loki Docker image
+  community.docker.docker_image:
+    name: "{{ loki_image }}"
+    source: pull
+
+- name: Pull Promtail Docker image
+  community.docker.docker_image:
+    name: "{{ promtail_image }}"
+    source: pull
+
+- name: Run Loki container
+  community.docker.docker_container:
+    name: loki
+    image: "{{ loki_image }}"
+    state: started
+    restart_policy: unless-stopped
+    network_mode: host
+    volumes:
+      - "/etc/loki:/etc/loki"
+      - "{{ loki_data_dir }}:/loki"
+    command: "-config.file=/etc/loki/loki-config.yml"
+
+- name: Run Promtail container
+  community.docker.docker_container:
+    name: promtail
+    image: "{{ promtail_image }}"
+    state: started
+    restart_policy: unless-stopped
+    network_mode: host
+    volumes:
+      - "/etc/promtail:/etc/promtail"
+      - "/var/log:/var/log:ro"
+    command: "-config.file=/etc/promtail/promtail-config.yml"

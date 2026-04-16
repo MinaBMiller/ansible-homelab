@@ -20,3 +20,6 @@
     - nginx       # web server, reverse proxy, virtual hosts
     - docker      # container runtime for self-hosted services
     - suricata    # network intrusion detection (IDS), threat alerts
+    - prometheus  # metrics collection and storage
+    - loki        # log aggregation (Suricata alerts, syslog, auth)
+    - grafana     # dashboards and visualization (http://<vm-ip>:3000)

@@ -1,0 +1,23 @@
+# /etc/grafana/provisioning/datasources/datasources.yml
+# Managed by Ansible
+#
+# Provisioned data sources are automatically configured when Grafana starts.
+# No manual setup needed — Prometheus and Loki are ready to query immediately.
+
+apiVersion: 1
+
+datasources:
+  # Prometheus — for metrics (CPU, memory, disk, network)
+  - name: Prometheus
+    type: prometheus
+    access: proxy
+    url: http://localhost:{{ prometheus_port }}
+    isDefault: true
+    editable: false
+
+  # Loki — for logs (Suricata alerts, syslog, auth log)
+  - name: Loki
+    type: loki
+    access: proxy
+    url: http://localhost:{{ loki_port }}
+    editable: false
