@@ -1,0 +1,18 @@
+---
+# defaults/main.yml — Docker Role
+#
+# Installs Docker CE (Community Edition) from Docker's official apt repository.
+# The official repo is preferred over Ubuntu's packaged version because it's
+# always up to date — Ubuntu's repos can lag months behind.
+
+# Users to add to the 'docker' group.
+# Members of this group can run docker commands without sudo.
+# This is convenient but has security implications — docker group access
+# is effectively root access, because you can mount the host filesystem.
+docker_users:
+  - ansible
+
+# Whether to install Docker Compose plugin (docker compose v2).
+# Compose lets you define multi-container apps in a single YAML file —
+# much easier than running multiple 'docker run' commands.
+docker_install_compose: true

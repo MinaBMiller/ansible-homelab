@@ -18,3 +18,4 @@
     - systemd     # service management, journal log limits, custom units
     - monitoring  # node exporter (metrics), logwatch (log digests)
     - nginx       # web server, reverse proxy, virtual hosts
+    - docker      # container runtime for self-hosted services
