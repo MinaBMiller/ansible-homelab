@@ -12,12 +12,23 @@ A collection of Ansible playbooks for provisioning and configuring a self-hosted
 
 ```
 ansible-homelab/
-├── ansible.cfg          # Ansible configuration (inventory path, SSH defaults)
+├── ansible.cfg              # Ansible configuration (inventory, SSH, roles path)
+├── requirements.yml         # Ansible Galaxy collection dependencies
+├── .env                     # Local environment variables (gitignored)
 ├── inventory/
-│   ├── hosts.ini        # Target machines and groups
-│   └── group_vars/      # Variables scoped to host groups
-├── playbooks/           # Top-level playbooks (what gets run)
-└── roles/               # Reusable task bundles (the actual work)
+│   ├── hosts.ini            # Your local inventory with VM IPs (gitignored)
+│   ├── hosts.ini.example    # Template to copy for hosts.ini
+│   └── group_vars/          # Variables scoped to host groups
+├── playbooks/
+│   ├── bootstrap.yml        # One-time setup (creates ansible user + SSH key)
+│   └── base.yml             # Main playbook — runs all roles
+└── roles/
+    ├── common/              # apt updates, packages, UFW firewall, SSH hardening, timezone
+    ├── users/               # user accounts, groups, SSH keys, sudo
+    ├── networking/          # hostname, DNS, static IP, /etc/hosts
+    ├── systemd/             # journal log limits, service management, custom units
+    ├── monitoring/          # Node Exporter (port 9100), logwatch
+    └── nginx/               # web server, reverse proxy, security headers, TLS-ready
 ```
 
 ## Concepts Covered
@@ -37,14 +48,30 @@ ansible-homelab/
 
 ## Getting Started
 
-1. Create an Ubuntu Server VM in UTM
-2. Update `inventory/hosts.ini` with the VM's IP address
-3. Set up SSH key auth to the VM (see playbooks/bootstrap.yml)
-4. Run your first playbook:
-
-```bash
-ansible-playbook playbooks/base.yml
-```
+1. Create an Ubuntu Server 24.04 ARM64 VM in UTM
+2. Generate an SSH key if you don't have one: `ssh-keygen -t ed25519`
+3. Copy the inventory template and set your VM's IP:
+   ```bash
+   cp inventory/hosts.ini.example inventory/hosts.ini
+   # Edit hosts.ini with your VM's IP (find it with `ip a` on the VM)
+   ```
+4. Create a `.env` file with your SSH public key:
+   ```bash
+   echo "MINA_SSH_PUB_KEY=$(cat ~/.ssh/id_ed25519.pub)" > .env
+   ```
+5. Install required Ansible collections:
+   ```bash
+   ansible-galaxy collection install -r requirements.yml
+   ```
+6. Run the bootstrap playbook (one-time, sets up the `ansible` user):
+   ```bash
+   ansible-playbook playbooks/bootstrap.yml --ask-pass --ask-become-pass -u mina
+   ```
+7. Source your env and run the base playbook:
+   ```bash
+   source .env && export MINA_SSH_PUB_KEY
+   ansible-playbook playbooks/base.yml
+   ```
 
 ## Why Ansible?
 
