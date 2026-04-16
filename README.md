@@ -73,6 +73,10 @@ ansible-homelab/
    ansible-playbook playbooks/base.yml
    ```
 
+## Learning Guide
+
+See [PROJECT_OVERVIEW.md](PROJECT_OVERVIEW.md) for a detailed breakdown of every task the playbook runs, what it configures, and the sysadmin reasoning behind each decision.
+
 ## Why Ansible?
 
 Ansible lets you define your infrastructure as code — instead of manually SSHing into servers and running commands, you write repeatable, readable automation. This means your setup is documented, version-controlled, and reproducible.
