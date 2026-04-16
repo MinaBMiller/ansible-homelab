@@ -1,0 +1,17 @@
+# Ansible Inventory — defines what machines Ansible can manage
+#
+# Copy this file to hosts.ini and fill in your VM's IP:
+#   cp inventory/hosts.ini.example inventory/hosts.ini
+#
+# Format: alias ansible_host=<IP>
+
+[control]
+# Update the IP after you create the VM (run `ip a` on the VM to find it)
+ubuntu-01 ansible_host=<YOUR_VM_IP>
+
+# Example of how you'd add more machines later:
+# ubuntu-02 ansible_host=192.168.64.11
+
+[all:vars]
+# These variables apply to every machine in the inventory
+ansible_python_interpreter=/usr/bin/python3

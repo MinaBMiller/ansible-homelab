@@ -10,14 +10,13 @@
 sysadmin_users:
 
   - name: mina
-    uid: 2000
     groups:
       - ops
       - sudo
     shell: /bin/bash
     sudo: true
     # Replace this with your actual public key (run: cat ~/.ssh/id_ed25519.pub)
-    ssh_key: "ssh-ed25519 AAAAC3... your-key-here"
+    ssh_key: "{{ lookup('env', 'MINA_SSH_PUB_KEY') }}"
     state: present
 
   # Example of a service account — no login shell, no SSH, just runs a process

@@ -3,6 +3,7 @@
 .env*
 secrets/
 vault_pass.txt
+inventory/hosts.ini
 
 # Ansible retry files (created when a playbook fails partway through)
 *.retry
