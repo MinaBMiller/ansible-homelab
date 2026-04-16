@@ -17,17 +17,23 @@ Run once on a fresh server. After this, you never need a password again.
 <details>
 <summary><strong>Test yourself</strong></summary>
 
-**Q: Why do we use `--ask-pass` only during bootstrap and never again?**
-A: Bootstrap is the one time we don't have SSH key auth set up yet, so we need a password to get in. Once the playbook copies our public key to the server, all future connections use key-based auth — no password needed.
+1. Why do we use `--ask-pass` only during bootstrap and never again?
+2. Why create a separate `ansible` user instead of just using your personal `mina` account?
+3. What would happen if `visudo` validation wasn't used when writing the sudoers file?
+4. The bootstrap playbook uses `lookup('file', '~/.ssh/id_ed25519.pub')`. What's the difference between `lookup('file', ...)` and `lookup('env', ...)`?
 
-**Q: Why create a separate `ansible` user instead of just using your personal `mina` account?**
-A: Separation of concerns. If automation runs under its own account, you can see exactly what Ansible changed (vs. what a human did) in logs and file ownership. You can also revoke Ansible's access without affecting your own login, or vice versa.
+</details>
 
-**Q: What would happen if `visudo` validation wasn't used when writing the sudoers file?**
-A: A syntax error in a sudoers file can completely break `sudo` for the entire system. If that happens on a remote server with `PermitRootLogin no`, you've locked yourself out — the only recovery is booting into single-user/recovery mode. `visudo` checks syntax before the file is written and rejects bad configs.
+<details>
+<summary><strong>Answers</strong></summary>
 
-**Q: The bootstrap playbook uses `lookup('file', '~/.ssh/id_ed25519.pub')`. What's the difference between `lookup('file', ...)` and `lookup('env', ...)`?**
-A: `lookup('file', ...)` reads the contents of a file on the control machine (your Mac). `lookup('env', ...)` reads an environment variable on the control machine. The bootstrap reads the key file directly; the base playbook reads it from an env var (so the actual key isn't committed to git).
+**1.** Bootstrap is the one time we don't have SSH key auth set up yet, so we need a password to get in. Once the playbook copies our public key to the server, all future connections use key-based auth — no password needed.
+
+**2.** Separation of concerns. If automation runs under its own account, you can see exactly what Ansible changed (vs. what a human did) in logs and file ownership. You can also revoke Ansible's access without affecting your own login, or vice versa.
+
+**3.** A syntax error in a sudoers file can completely break `sudo` for the entire system. If that happens on a remote server with `PermitRootLogin no`, you've locked yourself out — the only recovery is booting into single-user/recovery mode. `visudo` checks syntax before the file is written and rejects bad configs.
+
+**4.** `lookup('file', ...)` reads the contents of a file on the control machine (your Mac). `lookup('env', ...)` reads an environment variable on the control machine. The bootstrap reads the key file directly; the base playbook reads it from an env var (so the actual key isn't committed to git).
 
 </details>
 
@@ -88,20 +94,26 @@ Writes an apt config that checks for and installs security updates daily. Unatte
 <details>
 <summary><strong>Test yourself</strong></summary>
 
-**Q: The firewall defaults to deny-incoming but allow-outgoing. Could a compromised server use outgoing connections maliciously? What would you do about it in a production environment?**
-A: Yes — a compromised server could use outgoing connections to exfiltrate data, connect to a command-and-control server, or attack other systems. In production, you'd restrict outgoing traffic to only the ports and destinations needed (e.g., allow port 80/443 for package updates, port 53 for DNS, and block everything else). This is called egress filtering. In a homelab, the added complexity isn't worth it.
+1. The firewall defaults to deny-incoming but allow-outgoing. Could a compromised server use outgoing connections maliciously? What would you do about it in a production environment?
+2. We set `PasswordAuthentication no` in SSH. What happens if you lose your SSH private key?
+3. Why does the playbook set the timezone explicitly? Ubuntu already has a default timezone.
+4. What's the difference between `apt upgrade` and `apt dist-upgrade`? Why does the playbook use `dist`?
+5. Why is `fail2ban` useful if we've already disabled password authentication?
 
-**Q: We set `PasswordAuthentication no` in SSH. What happens if you lose your SSH private key?**
-A: You're locked out of remote access. Recovery options: boot into single-user/recovery mode from the VM console (UTM gives you console access), or re-enable password auth from the console. This is why you should always have a backup of your SSH key and/or physical/console access to the machine.
+</details>
 
-**Q: Why does the playbook set the timezone explicitly? Ubuntu already has a default timezone.**
-A: Ubuntu defaults to UTC. While UTC is a valid choice (and common in production), the important thing is consistency — all servers should use the same timezone so you can correlate logs across machines. If server A says an error happened at 14:00 UTC and server B says 06:00 PST, you have to do mental math to know if they're related.
+<details>
+<summary><strong>Answers</strong></summary>
 
-**Q: What's the difference between `apt upgrade` and `apt dist-upgrade`? Why does the playbook use `dist`?**
-A: `upgrade` installs new versions but will never remove a package or install a new dependency. `dist-upgrade` (what Ansible calls `upgrade: dist`) is smarter — it can add or remove packages to resolve new dependencies. This matters for kernel updates and security patches that introduce new dependencies. `dist-upgrade` is safer for keeping a system fully patched.
+**1.** Yes — a compromised server could use outgoing connections to exfiltrate data, connect to a command-and-control server, or attack other systems. In production, you'd restrict outgoing traffic to only the ports and destinations needed (e.g., allow port 80/443 for package updates, port 53 for DNS, and block everything else). This is called egress filtering. In a homelab, the added complexity isn't worth it.
 
-**Q: Why is `fail2ban` useful if we've already disabled password authentication?**
-A: Defense in depth. Even with password auth disabled, brute-force attempts still consume server resources (CPU, network, log space) and create noise in your logs. fail2ban reduces this by banning repeat offenders at the firewall level. It also protects other services that might use password auth in the future.
+**2.** You're locked out of remote access. Recovery options: boot into single-user/recovery mode from the VM console (UTM gives you console access), or re-enable password auth from the console. This is why you should always have a backup of your SSH key and/or physical/console access to the machine.
+
+**3.** Ubuntu defaults to UTC. While UTC is a valid choice (and common in production), the important thing is consistency — all servers should use the same timezone so you can correlate logs across machines. If server A says an error happened at 14:00 UTC and server B says 06:00 PST, you have to do mental math to know if they're related.
+
+**4.** `upgrade` installs new versions but will never remove a package or install a new dependency. `dist-upgrade` (what Ansible calls `upgrade: dist`) is smarter — it can add or remove packages to resolve new dependencies. This matters for kernel updates and security patches that introduce new dependencies. `dist-upgrade` is safer for keeping a system fully patched.
+
+**5.** Defense in depth. Even with password auth disabled, brute-force attempts still consume server resources (CPU, network, log space) and create noise in your logs. fail2ban reduces this by banning repeat offenders at the firewall level. It also protects other services that might use password auth in the future.
 
 </details>
 
@@ -137,20 +149,26 @@ Sets home directories to `0700` (owner-only access). The three digits represent 
 <details>
 <summary><strong>Test yourself</strong></summary>
 
-**Q: What does `exclusive: true` on the `authorized_key` module actually mean in practice? What's the risk of setting it to `false`?**
-A: `exclusive: true` means the `authorized_keys` file will contain ONLY the keys Ansible manages — any manually-added keys are removed. With `false`, manually-added keys persist, which means a former employee or attacker who once had access could have added a key you don't know about. The tradeoff: with `exclusive: true`, you must manage ALL keys through Ansible — you can't quickly add a temporary key via SSH.
+1. What does `exclusive: true` on the `authorized_key` module actually mean in practice? What's the risk of setting it to `false`?
+2. The `webrunner` account has `/sbin/nologin` as its shell. If you needed to debug something running as `webrunner`, how would you run commands as that user?
+3. Why use `/etc/sudoers.d/` drop-in files instead of editing the main `/etc/sudoers` file directly?
+4. The permission `0700` on home directories means only the owner can access them. What permission would you use if you wanted the owner's group to also read files but not modify them?
+5. Why must groups be created before users in the task ordering?
 
-**Q: The `webrunner` account has `/sbin/nologin` as its shell. If you needed to debug something running as `webrunner`, how would you run commands as that user?**
-A: Use `sudo -u webrunner <command>` from an account with sudo access. For example: `sudo -u webrunner whoami`. You can also use `sudo -u webrunner -s /bin/bash` to get a shell as that user, bypassing the nologin restriction because sudo overrides the shell setting.
+</details>
 
-**Q: Why use `/etc/sudoers.d/` drop-in files instead of editing the main `/etc/sudoers` file directly?**
-A: Three reasons: (1) Each user's sudo config is in its own file, so revoking access means deleting one file instead of editing a shared file. (2) Multiple tools/roles can manage sudo without conflicting — they each write their own file. (3) If a drop-in file has a syntax error, it only breaks that file, not the entire sudoers configuration.
+<details>
+<summary><strong>Answers</strong></summary>
 
-**Q: The permission `0700` on home directories means only the owner can access them. What permission would you use if you wanted the owner's group to also read files but not modify them?**
-A: `0750`. The `5` for group means read (4) + execute (1) — execute on a directory means you can `cd` into it and list files. Without the execute bit, even with read permission, you can't access the directory contents.
+**1.** `exclusive: true` means the `authorized_keys` file will contain ONLY the keys Ansible manages — any manually-added keys are removed. With `false`, manually-added keys persist, which means a former employee or attacker who once had access could have added a key you don't know about. The tradeoff: with `exclusive: true`, you must manage ALL keys through Ansible — you can't quickly add a temporary key via SSH.
 
-**Q: Why must groups be created before users in the task ordering?**
-A: The user creation task assigns users to groups with `groups: [ops, sudo]`. If those groups don't exist yet, the task fails. Ansible runs tasks top-to-bottom, so the group creation task must come first. This is one of the few cases where order matters in declarative configuration.
+**2.** Use `sudo -u webrunner <command>` from an account with sudo access. For example: `sudo -u webrunner whoami`. You can also use `sudo -u webrunner -s /bin/bash` to get a shell as that user, bypassing the nologin restriction because sudo overrides the shell setting.
+
+**3.** Three reasons: (1) Each user's sudo config is in its own file, so revoking access means deleting one file instead of editing a shared file. (2) Multiple tools/roles can manage sudo without conflicting — they each write their own file. (3) If a drop-in file has a syntax error, it only breaks that file, not the entire sudoers configuration.
+
+**4.** `0750`. The `5` for group means read (4) + execute (1) — execute on a directory means you can `cd` into it and list files. Without the execute bit, even with read permission, you can't access the directory contents.
+
+**5.** The user creation task assigns users to groups with `groups: [ops, sudo]`. If those groups don't exist yet, the task fails. Ansible runs tasks top-to-bottom, so the group creation task must come first. This is one of the few cases where order matters in declarative configuration.
 
 </details>
 
@@ -188,20 +206,26 @@ By default, the VM gets a dynamic IP from DHCP — the IP can change on every re
 <details>
 <summary><strong>Test yourself</strong></summary>
 
-**Q: We experienced the VM IP changing between reboots during setup. How would enabling a static IP have prevented that? What's the tradeoff?**
-A: With DHCP, the router assigns whatever IP is available — it can change each time. A static IP is hardcoded in the VM's network config, so it never changes. The tradeoff: you must pick an IP outside the DHCP range (or reserve it on the router) to avoid conflicts. If two devices claim the same IP, neither works correctly.
+1. We experienced the VM IP changing between reboots during setup. How would enabling a static IP have prevented that? What's the tradeoff?
+2. Why does `/etc/hosts` get checked before DNS? When would you want to override DNS with a hosts entry?
+3. The role uses two DNS providers (Cloudflare and Google). Why not just use one?
+4. The Netplan config file uses mode `0600`. Why is it more restrictive than most other config files (which use `0644`)?
+5. What would happen if you set `configure_static_ip: true` but used an IP that's already taken by another device on the network?
 
-**Q: Why does `/etc/hosts` get checked before DNS? When would you want to override DNS with a hosts entry?**
-A: The lookup order is defined in `/etc/nsswitch.conf`. Checking hosts first is useful for: (1) local name resolution without a DNS server (like in a homelab), (2) overriding public DNS for testing (pointing `myapp.com` at a local dev server), (3) blocking domains by pointing them to `127.0.0.1`. It's faster too — no network request needed.
+</details>
 
-**Q: The role uses two DNS providers (Cloudflare and Google). Why not just use one?**
-A: Redundancy. If Cloudflare's DNS goes down, the server falls back to Google. DNS is critical infrastructure — without it, almost nothing works (package installs, git, web requests all fail). Using two independent providers from different companies protects against a single provider's outage.
+<details>
+<summary><strong>Answers</strong></summary>
 
-**Q: The Netplan config file uses mode `0600`. Why is it more restrictive than most other config files (which use `0644`)?**
-A: Netplan files can contain sensitive network details like static IPs, gateways, and potentially WiFi passwords or VLAN configurations. `0600` means only root can read it. A regular user doesn't need to see network configuration, and exposing it could help an attacker map your network.
+**1.** With DHCP, the router assigns whatever IP is available — it can change each time. A static IP is hardcoded in the VM's network config, so it never changes. The tradeoff: you must pick an IP outside the DHCP range (or reserve it on the router) to avoid conflicts. If two devices claim the same IP, neither works correctly.
 
-**Q: What would happen if you set `configure_static_ip: true` but used an IP that's already taken by another device on the network?**
-A: You'd get an IP conflict. Both devices would intermittently lose connectivity — packets would sometimes go to one, sometimes the other. Network tools like `arping` can detect this. The fix is either to choose a different IP or remove the conflicting device.
+**2.** The lookup order is defined in `/etc/nsswitch.conf`. Checking hosts first is useful for: (1) local name resolution without a DNS server (like in a homelab), (2) overriding public DNS for testing (pointing `myapp.com` at a local dev server), (3) blocking domains by pointing them to `127.0.0.1`. It's faster too — no network request needed.
+
+**3.** Redundancy. If Cloudflare's DNS goes down, the server falls back to Google. DNS is critical infrastructure — without it, almost nothing works (package installs, git, web requests all fail). Using two independent providers from different companies protects against a single provider's outage.
+
+**4.** Netplan files can contain sensitive network details like static IPs, gateways, and potentially WiFi passwords or VLAN configurations. `0600` means only root can read it. A regular user doesn't need to see network configuration, and exposing it could help an attacker map your network.
+
+**5.** You'd get an IP conflict. Both devices would intermittently lose connectivity — packets would sometimes go to one, sometimes the other. Network tools like `arping` can detect this. The fix is either to choose a different IP or remove the conflicting device.
 
 </details>
 
@@ -244,20 +268,26 @@ A Jinja2 template for creating your own systemd services. Empty by default — w
 <details>
 <summary><strong>Test yourself</strong></summary>
 
-**Q: We hit this exact issue during setup — SSH was `active (dead)` and wouldn't start on boot. What's the difference between `systemctl start` and `systemctl enable`, and why do you need both?**
-A: `start` runs the service right now. `enable` creates a symlink so systemd starts it automatically on boot. Without `enable`, the service stops on reboot and you have to manually start it again — exactly what happened with SSH during our setup. You almost always want both.
+1. We hit this exact issue during setup — SSH was `active (dead)` and wouldn't start on boot. What's the difference between `systemctl start` and `systemctl enable`, and why do you need both?
+2. Why does systemd require `daemon-reload` after changing a unit file? Why doesn't it just watch for file changes?
+3. The journal is set to keep 1 month of logs with a 500MB cap. If the server generates 600MB of logs in two weeks, what happens?
+4. Why disable `snapd` specifically? Are there other default Ubuntu services you might consider disabling on a server?
+5. A service is `enabled` but shows `inactive (dead)`. What are some possible reasons?
 
-**Q: Why does systemd require `daemon-reload` after changing a unit file? Why doesn't it just watch for file changes?**
-A: Systemd reads and caches all unit files at boot for performance. Watching thousands of files for changes would add overhead and introduce race conditions (what if you're halfway through writing a file?). `daemon-reload` gives you explicit control — you make your changes, then tell systemd "I'm done, re-read everything." It's a deliberate design choice favoring reliability over convenience.
+</details>
 
-**Q: The journal is set to keep 1 month of logs with a 500MB cap. If the server generates 600MB of logs in two weeks, what happens?**
-A: The size limit (500MB) takes precedence. Journald will delete the oldest logs to stay under 500MB, even if they're less than a month old. Size limits protect against disk-full scenarios; time limits are secondary cleanup. This is why both exist — the size limit is the safety net, the time limit is housekeeping.
+<details>
+<summary><strong>Answers</strong></summary>
 
-**Q: Why disable `snapd` specifically? Are there other default Ubuntu services you might consider disabling on a server?**
-A: Snapd runs background processes (snapd, snap updates) that consume memory and CPU on a server that doesn't use snap packages. Other candidates for disabling: `cloud-init` (if not in a cloud environment), `ModemManager` (manages cellular modems — useless on a server), `cups` (printing — not needed on headless servers). The principle: every running service is attack surface and resource consumption. If you don't need it, turn it off.
+**1.** `start` runs the service right now. `enable` creates a symlink so systemd starts it automatically on boot. Without `enable`, the service stops on reboot and you have to manually start it again — exactly what happened with SSH during our setup. You almost always want both.
 
-**Q: A service is `enabled` but shows `inactive (dead)`. What are some possible reasons?**
-A: Several possibilities: (1) It crashed after starting — check `journalctl -u <service>` for error logs. (2) Its dependencies aren't met — another service it depends on isn't running. (3) It was stopped manually with `systemctl stop`. (4) Its `ExecStart` command doesn't exist or isn't executable. (5) It's a "oneshot" type that runs and exits (this is normal for setup tasks). `systemctl status` and journal logs are your first debugging tools.
+**2.** Systemd reads and caches all unit files at boot for performance. Watching thousands of files for changes would add overhead and introduce race conditions (what if you're halfway through writing a file?). `daemon-reload` gives you explicit control — you make your changes, then tell systemd "I'm done, re-read everything." It's a deliberate design choice favoring reliability over convenience.
+
+**3.** The size limit (500MB) takes precedence. Journald will delete the oldest logs to stay under 500MB, even if they're less than a month old. Size limits protect against disk-full scenarios; time limits are secondary cleanup. This is why both exist — the size limit is the safety net, the time limit is housekeeping.
+
+**4.** Snapd runs background processes (snapd, snap updates) that consume memory and CPU on a server that doesn't use snap packages. Other candidates for disabling: `cloud-init` (if not in a cloud environment), `ModemManager` (manages cellular modems — useless on a server), `cups` (printing — not needed on headless servers). The principle: every running service is attack surface and resource consumption. If you don't need it, turn it off.
+
+**5.** Several possibilities: (1) It crashed after starting — check `journalctl -u <service>` for error logs. (2) Its dependencies aren't met — another service it depends on isn't running. (3) It was stopped manually with `systemctl stop`. (4) Its `ExecStart` command doesn't exist or isn't executable. (5) It's a "oneshot" type that runs and exits (this is normal for setup tasks). `systemctl status` and journal logs are your first debugging tools.
 
 </details>
 
@@ -284,20 +314,26 @@ Parses system logs daily and produces a human-readable summary. Runs via cron an
 <details>
 <summary><strong>Test yourself</strong></summary>
 
-**Q: Node Exporter exposes metrics on port 9100 with no authentication. Why is this acceptable in a homelab but dangerous in production?**
-A: In a homelab on an isolated network, only you can reach port 9100. In production, unauthenticated metrics expose detailed system information (CPU count, disk layout, running services, memory) that helps attackers plan their approach. Production setups use either firewall rules restricting access to the Prometheus server's IP, a reverse proxy with authentication, or TLS client certificates.
+1. Node Exporter exposes metrics on port 9100 with no authentication. Why is this acceptable in a homelab but dangerous in production?
+2. Why run Node Exporter as a dedicated `node_exporter` user with `nologin` instead of just running it as root?
+3. The role downloads Node Exporter as a binary from GitHub instead of installing it via `apt`. What are the advantages and disadvantages of each approach?
+4. What's the difference between Node Exporter (metrics) and Logwatch (log digest)? When would you use each?
+5. You can see Node Exporter metrics by visiting `http://<server-ip>:9100/metrics` in a browser. What would you need to add to actually graph and alert on those metrics?
 
-**Q: Why run Node Exporter as a dedicated `node_exporter` user with `nologin` instead of just running it as root?**
-A: Principle of least privilege. Node Exporter only needs to read `/proc` and `/sys` (which are world-readable). If it ran as root and had a vulnerability, an attacker gets full system access. As `node_exporter` with `nologin`, a compromised process can only read system stats — it can't modify files, install software, or access other users' data.
+</details>
 
-**Q: The role downloads Node Exporter as a binary from GitHub instead of installing it via `apt`. What are the advantages and disadvantages of each approach?**
-A: Binary from GitHub: you get the exact version you want, works on any Linux distro, and updates are controlled by changing a version variable. But you're responsible for updating it yourself — no automatic security patches. Via apt: updates come through the normal package manager, but you're limited to whatever version Ubuntu packages (often outdated), and it may not be available in the default repos at all.
+<details>
+<summary><strong>Answers</strong></summary>
 
-**Q: What's the difference between Node Exporter (metrics) and Logwatch (log digest)? When would you use each?**
-A: Node Exporter gives you real-time numeric data — CPU at 80%, disk 90% full, 1000 network packets/sec. It's for dashboards, alerting, and trend analysis. Logwatch gives you a human-readable summary of what happened in the logs — 47 SSH login attempts, 3 sudo commands, 2 package installs. Use metrics for "is something wrong right now?" and logs for "what happened yesterday?" They complement each other.
+**1.** In a homelab on an isolated network, only you can reach port 9100. In production, unauthenticated metrics expose detailed system information (CPU count, disk layout, running services, memory) that helps attackers plan their approach. Production setups use either firewall rules restricting access to the Prometheus server's IP, a reverse proxy with authentication, or TLS client certificates.
 
-**Q: You can see Node Exporter metrics by visiting `http://<server-ip>:9100/metrics` in a browser. What would you need to add to actually graph and alert on those metrics?**
-A: Prometheus — a time-series database that scrapes the `/metrics` endpoint on a schedule (e.g., every 15 seconds), stores the data, and lets you query it. For visualization, add Grafana — it connects to Prometheus and lets you build dashboards. For alerting, configure Prometheus Alertmanager with rules like "alert if CPU > 90% for 5 minutes." This is the standard Prometheus + Grafana + Alertmanager stack.
+**2.** Principle of least privilege. Node Exporter only needs to read `/proc` and `/sys` (which are world-readable). If it ran as root and had a vulnerability, an attacker gets full system access. As `node_exporter` with `nologin`, a compromised process can only read system stats — it can't modify files, install software, or access other users' data.
+
+**3.** Binary from GitHub: you get the exact version you want, works on any Linux distro, and updates are controlled by changing a version variable. But you're responsible for updating it yourself — no automatic security patches. Via apt: updates come through the normal package manager, but you're limited to whatever version Ubuntu packages (often outdated), and it may not be available in the default repos at all.
+
+**4.** Node Exporter gives you real-time numeric data — CPU at 80%, disk 90% full, 1000 network packets/sec. It's for dashboards, alerting, and trend analysis. Logwatch gives you a human-readable summary of what happened in the logs — 47 SSH login attempts, 3 sudo commands, 2 package installs. Use metrics for "is something wrong right now?" and logs for "what happened yesterday?" They complement each other.
+
+**5.** Prometheus — a time-series database that scrapes the `/metrics` endpoint on a schedule (e.g., every 15 seconds), stores the data, and lets you query it. For visualization, add Grafana — it connects to Prometheus and lets you build dashboards. For alerting, configure Prometheus Alertmanager with rules like "alert if CPU > 90% for 5 minutes." This is the standard Prometheus + Grafana + Alertmanager stack.
 
 </details>
 
@@ -345,20 +381,26 @@ Opens ports 80 (HTTP) and 443 (HTTPS) in UFW. The common role set the default to
 <details>
 <summary><strong>Test yourself</strong></summary>
 
-**Q: We hit a bug where `X-XSS-Protection 1; mode=block` broke nginx. What was the actual problem, and what does this teach you about configuration templating?**
-A: The Jinja2 template rendered `add_header X-XSS-Protection 1; mode=block;` — nginx parsed the semicolon as a statement terminator, so it saw `mode=block` as a separate (invalid) directive. The fix was to quote the header value: `add_header X-XSS-Protection "1; mode=block";`. Lesson: when templating config files, always consider how special characters in your data interact with the config file's syntax. Quoting values is defensive — it's always safer to quote than to assume values won't contain special characters.
+1. We hit a bug where `X-XSS-Protection 1; mode=block` broke nginx. What was the actual problem, and what does this teach you about configuration templating?
+2. What's the difference between a web server and a reverse proxy? Why might you use nginx as a reverse proxy instead of exposing your app directly?
+3. The role uses `validate: nginx -t -c %s` when deploying the config. What does this do, and what would happen without it?
+4. Why does the role open port 443 (HTTPS) even though SSL isn't configured yet?
+5. The `sites-available` / `sites-enabled` pattern uses symlinks. Why is this better than just putting configs directly in one directory?
 
-**Q: What's the difference between a web server and a reverse proxy? Why might you use nginx as a reverse proxy instead of exposing your app directly?**
-A: A web server serves files from disk (HTML, CSS, images). A reverse proxy sits between clients and your application, forwarding requests. Reasons to use a reverse proxy: (1) SSL/TLS termination — nginx handles HTTPS so your app doesn't have to. (2) Static file serving — nginx is much faster at serving static files than most app servers. (3) Load balancing — distribute traffic across multiple app instances. (4) Security — nginx can filter malicious requests before they reach your app. (5) Your app can listen on localhost only, reducing attack surface.
+</details>
 
-**Q: The role uses `validate: nginx -t -c %s` when deploying the config. What does this do, and what would happen without it?**
-A: `nginx -t` tests the config file for syntax errors without applying it. Ansible runs this check before writing the file — if validation fails, the old config stays in place and nginx keeps running. Without it, a bad config would be written, and when nginx tries to reload, it would crash. The `%s` is a placeholder that Ansible replaces with the path to the temporary file being validated.
+<details>
+<summary><strong>Answers</strong></summary>
 
-**Q: Why does the role open port 443 (HTTPS) even though SSL isn't configured yet?**
-A: Forward-thinking configuration. When you add SSL later, the firewall is already ready — you just need to configure the certificate in nginx. If port 443 wasn't open, adding SSL would require changes to both the nginx role AND the firewall, which is easy to forget. Opening an unused port has minimal risk — there's nothing listening on it, so connections are simply refused.
+**1.** The Jinja2 template rendered `add_header X-XSS-Protection 1; mode=block;` — nginx parsed the semicolon as a statement terminator, so it saw `mode=block` as a separate (invalid) directive. The fix was to quote the header value: `add_header X-XSS-Protection "1; mode=block";`. Lesson: when templating config files, always consider how special characters in your data interact with the config file's syntax. Quoting values is defensive — it's always safer to quote than to assume values won't contain special characters.
 
-**Q: The `sites-available` / `sites-enabled` pattern uses symlinks. Why is this better than just putting configs directly in one directory?**
-A: It separates "exists" from "active." You can disable a site by removing the symlink and re-enable it by recreating it — no copying, no risk of losing the config. This is useful for maintenance (temporarily disable a site), staging (have a config ready but not active), and rollback (keep the old config in sites-available while the new one is active).
+**2.** A web server serves files from disk (HTML, CSS, images). A reverse proxy sits between clients and your application, forwarding requests. Reasons to use a reverse proxy: (1) SSL/TLS termination — nginx handles HTTPS so your app doesn't have to. (2) Static file serving — nginx is much faster at serving static files than most app servers. (3) Load balancing — distribute traffic across multiple app instances. (4) Security — nginx can filter malicious requests before they reach your app. (5) Your app can listen on localhost only, reducing attack surface.
+
+**3.** `nginx -t` tests the config file for syntax errors without applying it. Ansible runs this check before writing the file — if validation fails, the old config stays in place and nginx keeps running. Without it, a bad config would be written, and when nginx tries to reload, it would crash. The `%s` is a placeholder that Ansible replaces with the path to the temporary file being validated.
+
+**4.** Forward-thinking configuration. When you add SSL later, the firewall is already ready — you just need to configure the certificate in nginx. If port 443 wasn't open, adding SSL would require changes to both the nginx role AND the firewall, which is easy to forget. Opening an unused port has minimal risk — there's nothing listening on it, so connections are simply refused.
+
+**5.** It separates "exists" from "active." You can disable a site by removing the symlink and re-enable it by recreating it — no copying, no risk of losing the config. This is useful for maintenance (temporarily disable a site), staging (have a config ready but not active), and rollback (keep the old config in sites-available while the new one is active).
 
 </details>
 
@@ -395,19 +437,25 @@ Each role follows the same structure: `defaults/` (variables) → `tasks/` (work
 <details>
 <summary><strong>Think about these</strong></summary>
 
-**Q: If you deleted the VM and created a fresh one, what steps would you need to reproduce the entire setup?**
-A: (1) Install Ubuntu Server, create a user. (2) Copy `hosts.ini.example` to `hosts.ini` with the new VM's IP. (3) Set up `.env` with your SSH public key. (4) Run bootstrap with `--ask-pass --ask-become-pass`. (5) Run `base.yml`. That's it — two commands and your server is fully configured. This is the core value of infrastructure as code: your setup is documented, version-controlled, and reproducible.
+1. If you deleted the VM and created a fresh one, what steps would you need to reproduce the entire setup?
+2. The playbook currently targets `hosts: all`. What would you change if you had three servers and only wanted nginx on one of them?
+3. What's the risk of running `ansible-playbook base.yml` on a server that's already configured? Will it break anything?
+4. You now have firewall, SSH hardening, fail2ban, and security headers. What's still missing from a security perspective?
+5. How would you test that the playbook actually works correctly, beyond just seeing `ok=45 changed=9`?
 
-**Q: The playbook currently targets `hosts: all`. What would you change if you had three servers and only wanted nginx on one of them?**
-A: Create host groups in your inventory (e.g., `[webservers]`, `[databases]`). Then either split `base.yml` into multiple plays targeting different groups, or use `when` conditions based on group membership. You could also create separate playbooks like `web.yml` that only includes the nginx role and targets `[webservers]`.
+</details>
 
-**Q: What's the risk of running `ansible-playbook base.yml` on a server that's already configured? Will it break anything?**
-A: Ansible is idempotent — running the same playbook twice produces the same result. Tasks check the current state before acting. If a package is already installed, `apt` skips it. If a file already has the right content, it's not rewritten. Handlers only fire when a task reports a change. You should be able to run the playbook daily without fear. This is a fundamental Ansible design principle.
+<details>
+<summary><strong>Answers</strong></summary>
 
-**Q: You now have firewall, SSH hardening, fail2ban, and security headers. What's still missing from a security perspective?**
-A: Some things to consider: (1) SSL/TLS certificates for nginx (currently HTTP only). (2) Log aggregation to a central server (logs on a compromised server can be tampered with). (3) Intrusion detection (like AIDE or OSSEC). (4) Regular backups and tested restore procedures. (5) Network segmentation (separate VLANs for different services). (6) Secrets management (Ansible Vault for sensitive variables). (7) Regular vulnerability scanning. Security is layers — what we have is a solid foundation, not a complete solution.
+**1.** (1) Install Ubuntu Server, create a user. (2) Copy `hosts.ini.example` to `hosts.ini` with the new VM's IP. (3) Set up `.env` with your SSH public key. (4) Run bootstrap with `--ask-pass --ask-become-pass`. (5) Run `base.yml`. That's it — two commands and your server is fully configured. This is the core value of infrastructure as code: your setup is documented, version-controlled, and reproducible.
 
-**Q: How would you test that the playbook actually works correctly, beyond just seeing `ok=45 changed=9`?**
-A: Write verification tasks or a separate test playbook that checks: (1) `curl http://localhost` returns the nginx page. (2) `ufw status` shows the expected rules. (3) SSH with password fails (password auth disabled). (4) `curl http://localhost:9100/metrics` returns Node Exporter data. (5) Each expected user exists and has the right groups. (6) Expected services are running. This is infrastructure testing — tools like Molecule, Testinfra, or ServerSpec automate this.
+**2.** Create host groups in your inventory (e.g., `[webservers]`, `[databases]`). Then either split `base.yml` into multiple plays targeting different groups, or use `when` conditions based on group membership. You could also create separate playbooks like `web.yml` that only includes the nginx role and targets `[webservers]`.
+
+**3.** Ansible is idempotent — running the same playbook twice produces the same result. Tasks check the current state before acting. If a package is already installed, `apt` skips it. If a file already has the right content, it's not rewritten. Handlers only fire when a task reports a change. You should be able to run the playbook daily without fear. This is a fundamental Ansible design principle.
+
+**4.** Some things to consider: (1) SSL/TLS certificates for nginx (currently HTTP only). (2) Log aggregation to a central server (logs on a compromised server can be tampered with). (3) Intrusion detection (like AIDE or OSSEC). (4) Regular backups and tested restore procedures. (5) Network segmentation (separate VLANs for different services). (6) Secrets management (Ansible Vault for sensitive variables). (7) Regular vulnerability scanning. Security is layers — what we have is a solid foundation, not a complete solution.
+
+**5.** Write verification tasks or a separate test playbook that checks: (1) `curl http://localhost` returns the nginx page. (2) `ufw status` shows the expected rules. (3) SSH with password fails (password auth disabled). (4) `curl http://localhost:9100/metrics` returns Node Exporter data. (5) Each expected user exists and has the right groups. (6) Expected services are running. This is infrastructure testing — tools like Molecule, Testinfra, or ServerSpec automate this.
 
 </details>
