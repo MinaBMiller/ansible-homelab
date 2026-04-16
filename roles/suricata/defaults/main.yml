@@ -1,0 +1,33 @@
+---
+# defaults/main.yml — Suricata Role
+#
+# Suricata is an Intrusion Detection System (IDS). It reads network traffic
+# in real time and compares it against a database of known attack signatures.
+# When it sees something suspicious, it logs an alert.
+#
+# IDS vs IPS:
+#   IDS (detection)   = passive, watches and alerts but doesn't block
+#   IPS (prevention)  = active, can drop malicious packets
+#   We start with IDS — it can't break your network.
+
+# The network interface Suricata should monitor.
+# This must match the VM's actual interface name (check with `ip a`).
+suricata_interface: "enp0s1"
+
+# Your home network range — traffic from here is "expected."
+# Suricata uses this to know which traffic is internal vs external.
+# /24 means 192.168.64.0 through 192.168.64.255.
+suricata_home_net: "192.168.64.0/24"
+
+# Where Suricata stores its logs and alerts on the host.
+suricata_log_dir: "/var/log/suricata"
+
+# Where Suricata rules (signatures) are stored.
+suricata_rules_dir: "/etc/suricata/rules"
+
+# Suricata Docker image
+suricata_image: "jasonish/suricata:latest"
+
+# How often to update threat detection rules (via cron).
+# ET Open rules are free community-maintained signatures from Emerging Threats.
+suricata_rule_update_schedule: "daily"

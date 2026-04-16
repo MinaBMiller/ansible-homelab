@@ -1,0 +1,7 @@
+---
+# handlers/main.yml — Suricata Role
+
+- name: Restart Suricata container
+  community.docker.docker_container:
+    name: suricata
+    restart: true

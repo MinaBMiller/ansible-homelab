@@ -1,0 +1,122 @@
+---
+# tasks/main.yml — Suricata Role
+#
+# Deploys Suricata as a Docker container in IDS (detection-only) mode.
+# Suricata watches network traffic and logs alerts when it detects
+# known attack patterns, port scans, brute-force attempts, etc.
+
+# ── Directories ───────────────────────────────────────────────────────────────
+
+- name: Create Suricata log directory
+  ansible.builtin.file:
+    path: "{{ suricata_log_dir }}"
+    state: directory
+    owner: root
+    group: root
+    mode: '0755'
+
+- name: Create Suricata config directory
+  ansible.builtin.file:
+    path: /etc/suricata
+    state: directory
+    owner: root
+    group: root
+    mode: '0755'
+
+- name: Create Suricata rules directory
+  ansible.builtin.file:
+    path: "{{ suricata_rules_dir }}"
+    state: directory
+    owner: root
+    group: root
+    mode: '0755'
+
+# ── Configuration ─────────────────────────────────────────────────────────────
+
+- name: Deploy Suricata configuration
+  ansible.builtin.template:
+    src: suricata.yaml.j2
+    dest: /etc/suricata/suricata.yaml
+    mode: '0644'
+  notify: Restart Suricata container
+
+# ── Container ─────────────────────────────────────────────────────────────────
+#
+# Suricata runs in a Docker container with:
+#   --net=host     → shares the host's network stack so it can see all traffic
+#   --cap-add      → NET_ADMIN and SYS_NICE are needed to capture packets
+#                    and set thread priorities
+#   Volume mounts  → logs, config, and rules persist on the host filesystem
+#
+# The container runs suricata-update first to download the latest threat
+# detection rules, then starts Suricata in IDS mode on the specified interface.
+
+- name: Pull Suricata Docker image
+  community.docker.docker_image:
+    name: "{{ suricata_image }}"
+    source: pull
+
+- name: Create suricata-update disable list
+  ansible.builtin.copy:
+    dest: /etc/suricata/disable.conf
+    content: |
+      # Rules that are incompatible with this Suricata version
+      2250009
+    mode: '0644'
+
+- name: Download and update Suricata rules
+  community.docker.docker_container:
+    name: suricata-update
+    image: "{{ suricata_image }}"
+    state: started
+    auto_remove: true
+    network_mode: host
+    volumes:
+      - "/etc/suricata:/etc/suricata"
+      - "{{ suricata_rules_dir }}:/var/lib/suricata/rules"
+    command: "suricata-update --disable-conf /etc/suricata/disable.conf"
+
+# Wait for the update container to finish
+- name: Wait for rule update to complete
+  community.docker.docker_container_info:
+    name: suricata-update
+  register: update_container
+  until: update_container.container is none
+  retries: 30
+  delay: 5
+
+- name: Run Suricata container
+  community.docker.docker_container:
+    name: suricata
+    image: "{{ suricata_image }}"
+    state: started
+    restart_policy: unless-stopped
+    network_mode: host
+    capabilities:
+      - NET_ADMIN
+      - SYS_NICE
+      - NET_RAW
+    volumes:
+      - "{{ suricata_log_dir }}:/var/log/suricata"
+      - "/etc/suricata:/etc/suricata"
+      - "{{ suricata_rules_dir }}:/var/lib/suricata/rules"
+    command: "suricata -i {{ suricata_interface }}"
+
+# ── Rule Updates ──────────────────────────────────────────────────────────────
+#
+# Suricata's detection is only as good as its rules. suricata-update downloads
+# the latest signatures from Emerging Threats (ET Open) — a free, community-
+# maintained ruleset that covers current threats.
+#
+# This cron job runs daily to keep rules fresh, then restarts Suricata
+# so it picks up the new signatures.
+
+- name: Create daily rule update cron job
+  ansible.builtin.cron:
+    name: "Update Suricata rules"
+    job: >-
+      docker exec suricata suricata-update --disable-conf /etc/suricata/disable.conf &&
+      docker restart suricata
+    hour: "3"
+    minute: "0"
+    user: root
